@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="VM-Poppy">
+  <rect width="512" height="512" rx="112" fill="#28251f"/>
+  <!-- stacked disposable VM boxes, in the assigned accent -->
+  <g fill="none" stroke="#bccf9e" stroke-width="26" stroke-linejoin="round">
+    <rect x="150" y="120" width="212" height="120" rx="18"/>
+    <rect x="150" y="278" width="212" height="120" rx="18"/>
+  </g>
+  <g fill="#bccf9e">
+    <circle cx="196" cy="180" r="16"/>
+    <circle cx="196" cy="338" r="16"/>
+  </g>
+</svg>

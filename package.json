@@ -1,0 +1,21 @@
+{
+  "name": "vm-poppy",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Spin up throwaway Linux or Windows VMs in your own AWS from reusable configs — an AgentsPoppy extension.",
+  "type": "module",
+  "workspaces": [
+    "frontend",
+    "backend"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build:frontend && npm run build:sidecar",
+    "build:frontend": "npm run build -w @vmpoppy/frontend",
+    "build:sidecar": "node scripts/build-sidecar.mjs",
+    "validate-manifest": "node --input-type=module -e \"import {parseManifest} from '/Users/mt/Projects/agentspoppy/packages/extension-sdk/dist/index.js'; import {readFileSync} from 'node:fs'; parseManifest(readFileSync('extension.json','utf8')); console.log('extension.json OK');\"",
+    "install-dev": "node /Users/mt/Projects/agentspoppy/scripts/install-dev-extension.mjs --src . --frontend frontend/dist --backend backend/vmpoppy-sidecar"
+  },
+  "license": "SEE LICENSE IN LICENSE"
+}

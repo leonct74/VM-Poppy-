@@ -1,0 +1,82 @@
+{
+  "id": "com.vmpoppy.desktop",
+  "name": "VM-Poppy",
+  "version": "0.1.0",
+  "description": "Spin up throwaway Linux or Windows VMs in your own AWS from reusable configs — install software automatically, connect, stop or tear down when you're done.",
+  "icon": "frontend/vmpoppy-icon.svg",
+  "permissionSet": {
+    "id": "vmpoppy-backend",
+    "name": "VM-Poppy backend",
+    "description": "Launch and manage EC2 instances it creates, scoped to its own tagged resources. Reads/creates on EC2; every change or delete is limited to instances, security groups, key pairs and volumes tagged as its own. No IAM, no account/org access.",
+    "requiredTags": ["agentspoppy:account", "agentspoppy:app", "agentspoppy:connection"],
+    "grants": [
+      {
+        "service": "ec2",
+        "actions": [
+          "DescribeInstances",
+          "DescribeInstanceStatus",
+          "DescribeInstanceTypes",
+          "DescribeImages",
+          "DescribeSecurityGroups",
+          "DescribeVpcs",
+          "DescribeSubnets",
+          "DescribeAvailabilityZones",
+          "DescribeKeyPairs",
+          "DescribeVolumes"
+        ],
+        "resourceScope": "*"
+      },
+      {
+        "service": "ec2",
+        "actions": [
+          "RunInstances",
+          "CreateSecurityGroup",
+          "CreateKeyPair",
+          "ImportKeyPair",
+          "CreateVolume",
+          "CreateTags"
+        ],
+        "resourceScope": "*"
+      },
+      {
+        "service": "ec2",
+        "actions": [
+          "TerminateInstances",
+          "StopInstances",
+          "StartInstances",
+          "ModifyInstanceAttribute",
+          "AttachVolume",
+          "DetachVolume",
+          "DeleteVolume",
+          "AuthorizeSecurityGroupIngress",
+          "AuthorizeSecurityGroupEgress",
+          "RevokeSecurityGroupIngress",
+          "RevokeSecurityGroupEgress",
+          "DeleteSecurityGroup",
+          "DeleteKeyPair",
+          "GetConsoleOutput",
+          "GetPasswordData"
+        ],
+        "resourceScope": "tagged-as-self"
+      }
+    ],
+    "limits": null
+  },
+  "frontend": {
+    "entry": "frontend/index.html"
+  },
+  "backend": {
+    "entry": "backend/vmpoppy-sidecar",
+    "transport": "http"
+  },
+  "teardown": {
+    "endpoint": "/teardown"
+  },
+  "capabilities": [
+    "aws:credentials",
+    "connection:read",
+    "backend:invoke",
+    "host:openExternal",
+    "host:notify"
+  ]
+}
