@@ -201,8 +201,14 @@ vm-poppy/
 
 ## 13. Build → install → run
 
-1. `npm run build` — frontend (`vite build` → `frontend/dist`) + backend (esbuild → SEA
-   `backend/vmpoppy-sidecar`).
+1. `npm run build` — frontend (`vite build` → `frontend/dist`) + backend **Node SEA**
+   (`scripts/build-sidecar.mjs`: esbuild→CJS → SEA blob → lipo-thin → strip → postject
+   inject → ad-hoc codesign → `backend/vmpoppy-sidecar`, a self-contained executable that
+   needs no Node installed). The output is a **native arm64** binary embedding Node 22.
+   **Cross-arch note:** esbuild is installed x86_64, but the base must carry the machine's
+   native slice — the script auto-re-execs under a universal node's x86_64 slice (Rosetta)
+   so `npm run build:sidecar` "just works" on Apple Silicon. Detects true hardware arch via
+   `sysctl hw.optional.arm64` (not `uname -m`, which lies under Rosetta).
 2. Install into AgentsPoppy for local testing:
    `node ~/Projects/agentspoppy/scripts/install-dev-extension.mjs --src ~/Projects/vm-poppy
    --frontend frontend/dist --backend backend/vmpoppy-sidecar`
@@ -219,7 +225,13 @@ vm-poppy/
 - ✅ Framework studied; feasibility confirmed on the unmodified host (DR4).
 - ✅ `extension.json` written, **validated**, and **rating-verified amber / 0 red** against
   AgentsPoppy's real `parseManifest` + `assessPermissionSet`.
-- 🚧 Project scaffolding.
-- ⬜ Backend (EC2 launch/list/lifecycle/teardown, user-data gen, config store, cred minting).
-- ⬜ Frontend (Quick + PRO, VM list, progress, connect, destructive ceremonies) on the design kit.
-- ⬜ Build/packaging (SEA sidecar), live end-to-end test in a throwaway account, certify.
+- ✅ Project scaffolding.
+- ✅ Backend (EC2 launch/list/lifecycle/teardown, user-data gen, config store, cred minting) —
+  typecheck clean, 9 unit tests pass.
+- ✅ Frontend (Quick + PRO, VM list, progress, connect, destructive ceremonies) on the design
+  kit — typecheck + production build clean, design-kit compliant.
+- ✅ Build/packaging — native arm64 **Node SEA** sidecar; boots ~2s, HTTP routes verified
+  (health/meta/configs OK; AWS routes reach the credential mint).
+- ⬜ Live end-to-end test inside AgentsPoppy against a throwaway AWS account (install-dev →
+  approve → deploy a VM → connect → teardown), then `npm run certify`.
+- ⬜ Windows/Linux target builds + signing/notarisation for public distribution.

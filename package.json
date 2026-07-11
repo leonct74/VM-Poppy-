@@ -17,5 +17,9 @@
     "validate-manifest": "node --input-type=module -e \"import {parseManifest} from '/Users/mt/Projects/agentspoppy/packages/extension-sdk/dist/index.js'; import {readFileSync} from 'node:fs'; parseManifest(readFileSync('extension.json','utf8')); console.log('extension.json OK');\"",
     "install-dev": "node /Users/mt/Projects/agentspoppy/scripts/install-dev-extension.mjs --src . --frontend frontend/dist --backend backend/vmpoppy-sidecar"
   },
+  "devDependencies": {
+    "esbuild": "^0.24.0",
+    "postject": "^1.0.0-alpha.6"
+  },
   "license": "SEE LICENSE IN LICENSE"
 }

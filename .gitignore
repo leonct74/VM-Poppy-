@@ -1,6 +1,7 @@
 node_modules/
 dist/
 frontend/dist/
+backend/build/
 backend/vmpoppy-sidecar
 backend/vmpoppy-sidecar-*
 *.tsbuildinfo
