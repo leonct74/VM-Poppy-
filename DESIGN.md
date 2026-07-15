@@ -271,7 +271,19 @@ vm-poppy/
   (health/meta/configs OK; AWS routes reach the credential mint).
 - ⬜ Live end-to-end test inside AgentsPoppy against a throwaway AWS account (install-dev →
   approve → deploy a VM → connect → teardown), then `npm run certify`.
-- ⬜ Windows/Linux target builds + signing/notarisation for public distribution.
+- ⬜ **FEATURE: region picker (not just UI polish).** Today every VM deploys in
+  `boot.account.region` (AgentsPoppy's `account.regions[0]`, default `us-east-1`); the EC2 client is
+  pinned to it at spawn ([server.ts:14](backend/src/server.ts)) and the `VmConfig.region` field is
+  **dead code** — unread, no UI control. To let the user choose per-config region:
+  1. **Per-region clients** — build the EC2 client from `config.region` at launch (brokered STS
+     creds are account-wide, so they work in any region — creds are *not* the blocker).
+  2. **Multi-region listing** — `DescribeInstances` is per-region, so "Running VMs" must fan out
+     across the regions the user has actually deployed to (track per-config/per-instance region, or
+     query a known set). This is the real work — the single fixed client today hides it.
+  3. **Default-VPC-per-region gotcha** — `resolveVpcId` uses the *default* VPC of the target region;
+     a region without one fails launch. Surface a clear message + the PRO subnet override.
+  Expose region as a **Quick-mode dropdown** (SES-style region list isn't needed — EC2 is in all
+  regions). A later minor version, after the v0.1.3 polish.
 - ⬜ **UX: `autoTerminateHours` on reusable boxes** — the field is shown but not enforced (§6 known
   gap). Either make the timer real (stop-at-TTL, keeping amber/no-IAM) or hide the field unless the
   "throwaway" lifecycle is selected. Do this before promoting the poppy widely.
