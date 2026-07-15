@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { host } from "./host";
 import { OS_CATALOG, SIZE_CATALOG, type OsKey, type VmConfig } from "./types";
 
 interface Props {
@@ -102,6 +103,26 @@ export function LaunchForm({ busy, onLaunch, onSave, onCancel, initial }: Props)
         <input className="input mono" placeholder={cfg.platform === "windows" ? "git googlechrome vscode" : "git docker.io python3"}
           value={softwareText} onChange={(e) => setSoftwareText(e.target.value)} />
       </label>
+      <p className="muted" style={{ fontSize: 12, marginTop: -8, marginBottom: 12 }}>
+        Use{" "}
+        {cfg.platform === "windows" ? (
+          <>
+            <strong>Chocolatey</strong> package names — e.g. Chrome is <code>googlechrome</code>, VS Code is{" "}
+            <code>vscode</code>.{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); void host.openExternal("https://community.chocolatey.org/packages"); }}>
+              Look up a name →
+            </a>
+          </>
+        ) : (
+          <>
+            <strong>apt</strong> package names (Ubuntu) — e.g. Chrome isn’t in apt; use <code>chromium-browser</code>.{" "}
+            <a href="#" onClick={(e) => { e.preventDefault(); void host.openExternal("https://packages.ubuntu.com"); }}>
+              Look up a name →
+            </a>
+          </>
+        )}{" "}
+        A misspelled name is skipped, not fatal — the box still boots without it.
+      </p>
 
       <div className="grid-2">
         <label className="field">
