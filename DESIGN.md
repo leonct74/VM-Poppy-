@@ -278,3 +278,11 @@ vm-poppy/
 - ⬜ **UX: "Save configuration" button** (§9 follow-up) — persist a config without deploying it,
   so a long-software template can be stashed and reused later. Backend endpoint already exists;
   frontend-only. Bundle with the auto-terminate field fix as a v0.1.3 UI-polish release.
+- ⬜ **UX: price display is hardcoded + ambiguous currency** — `SIZE_CATALOG` (frontend/src/types.ts)
+  carries strings like `~1.7¢/hr`. Two fixes: (a) use an **explicit currency** — `~$0.017/hr`, not
+  `¢` (which doesn't say USD); (b) label them **approximate** ("approx · varies by region/OS";
+  Windows carries a license charge). **Decision: keep them hardcoded, NOT live.** The AWS Pricing
+  API needs a `pricing:GetProducts` grant (eats the session-policy headroom we just recovered),
+  is us-east-1-only + heavyweight, and real prices vary by region/OS/tenancy anyway — so a live
+  number is still an approximation. Centralised estimates + an honest "approx" label is the right
+  trade; a pricing change is then a one-line-per-size edit. Frontend-only; fold into v0.1.3.
