@@ -85,7 +85,9 @@ export function VmCard({ vm, onChanged }: Props) {
       </div>
 
       <div className="muted mono" style={{ fontSize: 12, marginTop: 6 }}>
-        {vm.instanceId}{ip ? ` · ${ip}` : ""}{vm.launchedAt ? ` · ${new Date(vm.launchedAt).toLocaleString()}` : ""}
+        AWS id {vm.instanceId}
+        {ip ? <> · address <strong>{ip}</strong></> : null}
+        {vm.launchedAt ? ` · launched ${new Date(vm.launchedAt).toLocaleString()}` : ""}
       </div>
 
       {/* Connect */}
@@ -94,7 +96,11 @@ export function VmCard({ vm, onChanged }: Props) {
           <div className="section-title">Connect</div>
           {vm.platform === "windows" ? (
             <div className="stack">
-              <div className="muted-2">RDP to <span className="chip">{ip ?? "…"}</span> as <span className="chip">Administrator</span></div>
+              <div className="muted-2">
+                In your RDP client (e.g. Windows App), the <strong>“PC name”</strong> is this address:{" "}
+                <span className="chip" style={{ userSelect: "all" }}>{ip ?? "…"}</span> — sign in as{" "}
+                <span className="chip">Administrator</span>
+              </div>
               <div className="row">
                 <button className="btn btn-sm" disabled={busy === "pwd" || pwdWaiting} onClick={revealPassword}>
                   {busy === "pwd" ? "Decrypting…" : pwdWaiting ? <><span className="spinner" /> Waiting for Windows…</> : "Reveal password"}
