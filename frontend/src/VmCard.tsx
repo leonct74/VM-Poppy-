@@ -120,6 +120,13 @@ export function VmCard({ vm, onChanged }: Props) {
                   I’ll keep checking and show it here the moment it’s ready.
                 </div>
               )}
+              <div className="muted" style={{ fontSize: 12 }}>
+                To leave the session, just <strong>close the RDP window</strong> (in full screen: mouse to the top edge,
+                or Ctrl+⌘+F) — the box keeps running. Windows’ own “Shut down”{" "}
+                {vm.lifecycle === "ephemeral"
+                  ? "permanently self-destructs a throwaway box."
+                  : "powers the box off — restart it here with Start."}
+              </div>
             </div>
           ) : (
             <div className="stack">
@@ -144,13 +151,23 @@ export function VmCard({ vm, onChanged }: Props) {
 
       {err && <div className="banner err" style={{ marginBottom: 10 }}>{err}</div>}
 
+      {vm.state === "stopped" && (
+        <div className="muted" style={{ fontSize: 12, margin: "4px 0 8px" }}>
+          Stopped — it only costs its small disk fee. <strong>Start</strong> powers it back on with a{" "}
+          <strong>new address</strong>; the password is unchanged.
+        </div>
+      )}
+
       {/* Lifecycle actions */}
       <div className="row">
         {vm.state === "running" && vm.lifecycle === "reusable" && (
           <button className="btn btn-sm" disabled={!!busy} onClick={() => act("stop", () => api.stop(vm.instanceId))}>{busy === "stop" ? "Stopping…" : "Stop"}</button>
         )}
         {vm.state === "stopped" && (
-          <button className="btn btn-sm" disabled={!!busy} onClick={() => act("start", () => api.start(vm.instanceId))}>{busy === "start" ? "Starting…" : "Start"}</button>
+          <button className="btn btn-sm" disabled={!!busy} onClick={() => act("start", () => api.start(vm.instanceId))}
+            title="Powers the box back on. It gets a NEW address — reconnect using the address shown after it starts.">
+            {busy === "start" ? "Starting…" : "Start"}
+          </button>
         )}
         <button className="btn btn-sm btn-danger" disabled={!!busy} onClick={() => setConfirmKill(true)}>
           {busy === "kill" ? <><span className="spinner" /> Tearing down…</> : "Tear down"}
