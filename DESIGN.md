@@ -259,6 +259,19 @@ vm-poppy/
 
 ## 14. Status
 
+**Released:** v0.1.0 (first catalogue listing) → v0.1.1 (supervised-approval credential minting) →
+v0.1.2 (trimmed permission set so the STS session policy fits) → **v0.1.3** (Windows-connect fix +
+UX polish batch). Live-tested in AgentsPoppy against the user's real AWS: launch/connect exercised;
+teardown verified from the UI.
+
+**v0.1.3 shipped (2026-07-15):** ✅ Windows VMs no longer mislabelled as Linux (the lowercase
+`Platform` wire-value trap; now a `vmpoppy:platform` tag + case-insensitive detection) · ✅ teardown
+button shows an immediate "Tearing down…" spinner (was firing with no feedback) · ✅ number inputs no
+longer render "0"/concatenate to "04" · ✅ prices show explicit USD (`~$0.017/hr`) + "approx" label ·
+✅ auto-terminate field hidden on reusable boxes (+ a "keeps billing until you stop/tear down" note) ·
+✅ install "installing" copy reassures + softens after ~6 min. *Still open:* live pricing via the
+Price List API (§14), "Save configuration" button (§9), region picker, reusable stop-at-TTL.
+
 - ✅ Framework studied; feasibility confirmed on the unmodified host (DR4).
 - ✅ `extension.json` written, **validated**, and **rating-verified amber / 0 red** against
   AgentsPoppy's real `parseManifest` + `assessPermissionSet`.

@@ -88,7 +88,7 @@ export function LaunchForm({ busy, onLaunch, initial }: Props) {
           </select>
         </label>
         <label className="field">
-          <span>Size</span>
+          <span>Size <span className="muted" style={{ fontWeight: 400 }}>· prices approx, vary by region/OS</span></span>
           <select className="select" value={cfg.instanceType} onChange={(e) => pickSize(e.target.value)}>
             {sizes.map((s) => <option key={s.type} value={s.type}>{s.label} — {s.hint}</option>)}
           </select>
@@ -109,12 +109,19 @@ export function LaunchForm({ busy, onLaunch, initial }: Props) {
             <option value="ephemeral">Throwaway — self-destruct on a timer</option>
           </select>
         </label>
-        <label className="field">
-          <span>Auto-terminate after (hours){cfg.lifecycle === "reusable" ? " — safety net" : ""}</span>
-          <input className="input" type="number" min={0} value={cfg.autoTerminateHours ?? 0}
-            onChange={(e) => set("autoTerminateHours", Number(e.target.value) || undefined)} />
-        </label>
+        {cfg.lifecycle === "ephemeral" && (
+          <label className="field">
+            <span>Self-destruct after (hours)</span>
+            <input className="input" type="number" min={1} value={cfg.autoTerminateHours ?? ""}
+              onChange={(e) => { const n = parseInt(e.target.value, 10); set("autoTerminateHours", Number.isFinite(n) && n > 0 ? n : undefined); }} />
+          </label>
+        )}
       </div>
+      {cfg.lifecycle === "reusable" && (
+        <p className="muted" style={{ fontSize: 12, marginTop: -4, marginBottom: 12 }}>
+          A kept box bills until you <strong>Stop</strong> it (small disk cost only) or <strong>Tear it down</strong> ($0). It won't self-destruct.
+        </p>
+      )}
 
       {pro && (
         <div className="card card-2" style={{ marginTop: 4 }}>

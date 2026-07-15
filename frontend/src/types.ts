@@ -62,11 +62,14 @@ export const OS_CATALOG: { key: OsKey; label: string; platform: "linux" | "windo
 ];
 
 /** A few sensible instance sizes with rough hourly cost, by architecture. */
+// Prices are ROUGH USD on-demand estimates (approx · vary by region/OS; Windows adds a
+// license charge). Hardcoded for now; DESIGN.md §14 tracks moving these to the live
+// Price List API. Update here if AWS pricing shifts.
 export const SIZE_CATALOG: { type: string; arch: "arm64" | "x86_64"; label: string; hint: string }[] = [
-  { type: "t4g.small", arch: "arm64", label: "t4g.small", hint: "2 vCPU · 2 GB · ~1.7¢/hr" },
-  { type: "t4g.medium", arch: "arm64", label: "t4g.medium", hint: "2 vCPU · 4 GB · ~3.4¢/hr" },
-  { type: "t4g.large", arch: "arm64", label: "t4g.large", hint: "2 vCPU · 8 GB · ~6.7¢/hr" },
-  { type: "t3.small", arch: "x86_64", label: "t3.small", hint: "2 vCPU · 2 GB · ~2.1¢/hr" },
-  { type: "t3.medium", arch: "x86_64", label: "t3.medium", hint: "2 vCPU · 4 GB · ~4.2¢/hr" },
-  { type: "t3.large", arch: "x86_64", label: "t3.large", hint: "2 vCPU · 8 GB · ~8.3¢/hr" },
+  { type: "t4g.small", arch: "arm64", label: "t4g.small", hint: "2 vCPU · 2 GB · ~$0.017/hr" },
+  { type: "t4g.medium", arch: "arm64", label: "t4g.medium", hint: "2 vCPU · 4 GB · ~$0.034/hr" },
+  { type: "t4g.large", arch: "arm64", label: "t4g.large", hint: "2 vCPU · 8 GB · ~$0.067/hr" },
+  { type: "t3.small", arch: "x86_64", label: "t3.small", hint: "2 vCPU · 2 GB · ~$0.021/hr" },
+  { type: "t3.medium", arch: "x86_64", label: "t3.medium", hint: "2 vCPU · 4 GB · ~$0.042/hr" },
+  { type: "t3.large", arch: "x86_64", label: "t3.large", hint: "2 vCPU · 8 GB · ~$0.083/hr" },
 ];

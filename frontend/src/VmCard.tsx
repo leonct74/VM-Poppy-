@@ -45,6 +45,9 @@ export function VmCard({ vm, onChanged }: Props) {
   const ip = vm.publicIp;
   const sshUser = vm.user ?? "ec2-user";
   const sshCmd = ip && vm.keyName ? `ssh -i ~/.vmpoppy/keys/${vm.keyName}.pem ${sshUser}@${ip}` : null;
+  // Minutes since launch — used to soften the "installing" copy once it's clearly just the
+  // GetConsoleOutput lag rather than a real install still running.
+  const minutesUp = vm.launchedAt ? (Date.now() - new Date(vm.launchedAt).getTime()) / 60000 : 0;
 
   return (
     <div className="card">
@@ -86,7 +89,13 @@ export function VmCard({ vm, onChanged }: Props) {
               </div>
             </div>
           )}
-          {vm.install === "installing" && <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>Software is still installing on the box — it keeps going in the background.</div>}
+          {vm.install === "installing" && (
+            <div className="muted" style={{ fontSize: 12, marginTop: 8 }}>
+              {minutesUp > 6
+                ? "The install may already be finished — the ready signal can lag a few minutes. You can connect now and check (Linux: run cloud-init status)."
+                : "First launch installs your software — this can take a few minutes. You can connect as soon as the box is running (above); it keeps going in the background."}
+            </div>
+          )}
         </div>
       )}
 
@@ -100,7 +109,9 @@ export function VmCard({ vm, onChanged }: Props) {
         {vm.state === "stopped" && (
           <button className="btn btn-sm" disabled={!!busy} onClick={() => act("start", () => api.start(vm.instanceId))}>{busy === "start" ? "Starting…" : "Start"}</button>
         )}
-        <button className="btn btn-sm btn-danger" disabled={!!busy} onClick={() => setConfirmKill(true)}>Tear down</button>
+        <button className="btn btn-sm btn-danger" disabled={!!busy} onClick={() => setConfirmKill(true)}>
+          {busy === "kill" ? <><span className="spinner" /> Tearing down…</> : "Tear down"}
+        </button>
         {ip && <button className="btn btn-sm btn-ghost" onClick={() => host.openExternal(`https://console.aws.amazon.com/ec2/home#InstanceDetails:instanceId=${vm.instanceId}`)}>Open in AWS console</button>}
       </div>
 
@@ -111,8 +122,8 @@ export function VmCard({ vm, onChanged }: Props) {
             <p className="muted-2">This permanently terminates instance <span className="chip">{vm.instanceId}</span>, deletes its disk, security group and key pair, and <strong>cannot be undone</strong>. Anything on the box is lost.</p>
             <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
               <button className="btn" autoFocus onClick={() => setConfirmKill(false)}>Cancel</button>
-              <button className="btn btn-danger" disabled={!!busy} onClick={() => { setConfirmKill(false); act("kill", () => api.terminate(vm.instanceId)); }}>
-                {busy === "kill" ? "Tearing down…" : "Tear down"}
+              <button className="btn btn-danger" disabled={!!busy} onClick={() => act("kill", async () => { await api.terminate(vm.instanceId); setConfirmKill(false); })}>
+                {busy === "kill" ? <><span className="spinner" /> Tearing down…</> : "Tear down"}
               </button>
             </div>
           </div>
