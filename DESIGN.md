@@ -260,9 +260,21 @@ vm-poppy/
 ## 14. Status
 
 **Released:** v0.1.0 (first catalogue listing) → v0.1.1 (supervised-approval credential minting) →
-v0.1.2 (trimmed permission set so the STS session policy fits) → **v0.1.3** (Windows-connect fix +
-UX polish batch). Live-tested in AgentsPoppy against the user's real AWS: launch/connect exercised;
-teardown verified from the UI.
+v0.1.2 (trimmed permission set so the STS session policy fits) → v0.1.3 (Windows-connect fix + UX
+polish batch) → **v0.1.4** (app-scoped listing/teardown — fixes orphaned VMs after an update).
+Live-tested in AgentsPoppy against the user's real AWS.
+
+**v0.1.4 shipped (2026-07-15) — CRITICAL orphan fix.** `ownInstancesFilter` (and the ownership
+guard + teardown sweep) filtered by `agentspoppy:connection` = the *current* connection id. But every
+manifest-scope change **supersedes** the connection (revoke + recreate with a new id), while the VMs
+it created keep the *old* connection tag. Result: after an update, a running VM became **invisible in
+the new connection's list AND untouched by its teardown** — an orphaned, still-billing instance. Fix:
+scope listing/guard/teardown to the stable **`agentspoppy:app`** tag (matching the broker's own
+app-scoped session policy), so all of VM-Poppy's VMs are visible + manageable across supersedes. Also
+hardened per-VM cleanup: the security-group delete now **retries through `DependencyViolation`** (the
+ENI detaches a few seconds after `terminated`, so the old single 4s attempt leaked the SG).
+**Lesson (DR6): scope by the app tag, never the connection id — connections are ephemeral, the
+resources outlive them.**
 
 **v0.1.3 shipped (2026-07-15):** ✅ Windows VMs no longer mislabelled as Linux (the lowercase
 `Platform` wire-value trap; now a `vmpoppy:platform` tag + case-insensitive detection) · ✅ teardown

@@ -26,7 +26,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { privateDecrypt, constants as cryptoConstants } from "node:crypto";
 import { resolveAmi } from "./amis";
-import { attributionTags, ownInstancesFilter, tagValue, TAG_CONFIG, TAG_NAME, TAG_LIFECYCLE, TAG_USER, TAG_PLATFORM, TAG_APP, TAG_CONNECTION, APP_ID } from "./tags";
+import { attributionTags, ownInstancesFilter, tagValue, TAG_CONFIG, TAG_NAME, TAG_LIFECYCLE, TAG_USER, TAG_PLATFORM, TAG_APP, APP_ID } from "./tags";
 import { savePrivateKey, readPrivateKey } from "./configs";
 import { generateUserData } from "./userdata";
 import { detectPublicIp } from "./publicIp";
@@ -263,11 +263,27 @@ export class Ec2Service {
   }
 
   private async cleanupAfterTerminate(sgId?: string, keyName?: string): Promise<void> {
-    // Give termination a moment so the SG is no longer in use; ignore failures
-    // (the teardown hook is the real guarantee).
-    await new Promise((r) => setTimeout(r, 4000));
-    if (sgId) await this.ec2.send(new DeleteSecurityGroupCommand({ GroupId: sgId })).catch(() => undefined);
+    // A terminating instance keeps its SG "in use" (the ENI detaches a few seconds AFTER
+    // the instance reaches `terminated`), so a single 4s wait + one delete leaked the SG.
+    // Retry the SG delete with backoff (~2 min) until the DependencyViolation clears.
     if (keyName) await this.ec2.send(new DeleteKeyPairCommand({ KeyName: keyName })).catch(() => undefined);
+    if (sgId) await this.deleteSecurityGroupWithRetry(sgId);
+  }
+
+  /** Delete a security group, retrying while it's still "in use" by a terminating instance. */
+  private async deleteSecurityGroupWithRetry(sgId: string, attempts = 24, delayMs = 5000): Promise<boolean> {
+    for (let i = 0; i < attempts; i++) {
+      try {
+        await this.ec2.send(new DeleteSecurityGroupCommand({ GroupId: sgId }));
+        return true;
+      } catch (e) {
+        // Still attached (ENI detaches a few seconds after "terminated") → wait and retry.
+        // Anything else (already gone / not found) → nothing more to do here.
+        if ((e as { name?: string })?.name !== "DependencyViolation") return false;
+        await new Promise((r) => setTimeout(r, delayMs));
+      }
+    }
+    return false;
   }
 
   // ---- Windows password / key download ------------------------------------
@@ -303,16 +319,16 @@ export class Ec2Service {
       await this.waitTerminated(instanceIds);
     }
 
-    // Also sweep any of our tagged SGs not attached to a listed instance.
+    // Also sweep any of this APP's tagged SGs not attached to a listed instance (app-scoped,
+    // so SGs from a superseded connection are included too — see ownInstancesFilter).
     const taggedSgs = await this.ec2.send(
-      new DescribeSecurityGroupsCommand({ Filters: [{ Name: `tag:${TAG_APP}`, Values: [APP_ID] }, { Name: `tag:${TAG_CONNECTION}`, Values: [this.ctx.connectionId] }] }),
+      new DescribeSecurityGroupsCommand({ Filters: [{ Name: `tag:${TAG_APP}`, Values: [APP_ID] }] }),
     );
     for (const sg of taggedSgs.SecurityGroups ?? []) if (sg.GroupId) sgIds.add(sg.GroupId);
 
     const deletedSgs: string[] = [];
     for (const id of sgIds) {
-      const ok = await this.ec2.send(new DeleteSecurityGroupCommand({ GroupId: id })).then(() => true).catch(() => false);
-      if (ok) deletedSgs.push(id);
+      if (await this.deleteSecurityGroupWithRetry(id)) deletedSgs.push(id);
     }
     const deletedKeys: string[] = [];
     for (const name of keyNames) {
@@ -340,15 +356,15 @@ export class Ec2Service {
     return (res.Reservations ?? []).flatMap((r) => r.Instances ?? []).filter((i) => (i.State?.Name ?? "") !== "terminated");
   }
 
-  /** Fetch one instance and CONFIRM it is ours (tag match) before acting on it. */
+  /** Fetch one instance and CONFIRM it belongs to THIS APP before acting on it. Scoped to the
+   *  app tag (not the connection id) so a VM from a superseded connection is still manageable —
+   *  and the brokered creds are app-scoped anyway, so AWS enforces the same boundary. */
   private async getOwnInstance(instanceId: string) {
     const res = await this.ec2.send(new DescribeInstancesCommand({ InstanceIds: [instanceId] }));
     const inst = (res.Reservations ?? []).flatMap((r) => r.Instances ?? [])[0];
     if (!inst) throw new Error(`Instance ${instanceId} not found.`);
-    const app = tagValue(inst.Tags, TAG_APP);
-    const conn = tagValue(inst.Tags, TAG_CONNECTION);
-    if (app !== APP_ID || conn !== this.ctx.connectionId) {
-      throw new Error("That instance isn't one VM-Poppy created for this connection.");
+    if (tagValue(inst.Tags, TAG_APP) !== APP_ID) {
+      throw new Error("That instance isn't one VM-Poppy created.");
     }
     return inst;
   }

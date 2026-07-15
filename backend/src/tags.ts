@@ -30,12 +30,17 @@ export function attributionTags(ctx: AttributionContext): { Key: string; Value: 
   ];
 }
 
-/** A DescribeInstances filter that returns ONLY this connection's own instances. */
-export function ownInstancesFilter(ctx: AttributionContext): { Name: string; Values: string[] }[] {
-  return [
-    { Name: `tag:${TAG_APP}`, Values: [APP_ID] },
-    { Name: `tag:${TAG_CONNECTION}`, Values: [ctx.connectionId] },
-  ];
+/**
+ * A DescribeInstances filter for THIS APP's instances — scoped to the stable
+ * `agentspoppy:app` tag, NOT the connection id. Ownership is app-scoped (matching the
+ * broker's session policy), so listing/teardown must be too: a connection is superseded
+ * (revoked + recreated) whenever the manifest scope changes, but the VMs it created
+ * outlive it. Filtering by connection id would hide + strand those VMs (invisible in the
+ * new connection's UI, untouched by its teardown) — a running-instance orphan. `ctx` is
+ * kept for signature stability (the connection id is still stamped on each resource for audit).
+ */
+export function ownInstancesFilter(_ctx: AttributionContext): { Name: string; Values: string[] }[] {
+  return [{ Name: `tag:${TAG_APP}`, Values: [APP_ID] }];
 }
 
 /** A tag:GetResources-style filter value for a whole-app sweep (teardown backstop). */

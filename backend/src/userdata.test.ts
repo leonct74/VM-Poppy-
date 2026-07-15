@@ -74,9 +74,10 @@ describe("attribution tags", () => {
     expect(tagValue(tags, TAG_APP)).toBe(APP_ID);
     expect(tagValue(tags, TAG_CONNECTION)).toBe("conn-abc");
   });
-  it("filters to this connection's own instances", () => {
+  it("filters to this APP's instances (app-scoped, NOT connection-scoped — survives supersede)", () => {
     const f = ownInstancesFilter(ctx);
-    expect(f).toContainEqual({ Name: `tag:${TAG_APP}`, Values: [APP_ID] });
-    expect(f).toContainEqual({ Name: `tag:${TAG_CONNECTION}`, Values: ["conn-abc"] });
+    expect(f).toEqual([{ Name: `tag:${TAG_APP}`, Values: [APP_ID] }]);
+    // Must NOT scope by connection id — that would strand VMs from a superseded connection.
+    expect(f.some((x) => x.Name === `tag:${TAG_CONNECTION}`)).toBe(false);
   });
 });
