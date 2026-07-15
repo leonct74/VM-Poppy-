@@ -287,6 +287,18 @@ vm-poppy/
 - ⬜ **UX: `autoTerminateHours` on reusable boxes** — the field is shown but not enforced (§6 known
   gap). Either make the timer real (stop-at-TTL, keeping amber/no-IAM) or hide the field unless the
   "throwaway" lifecycle is selected. Do this before promoting the poppy widely.
+- ⬜ **UX: install-progress reassurance + soft timeout** — "installing" is detected via
+  `GetConsoleOutput`, which lags several minutes on EC2, so the badge sits on "installing" long after
+  the box is connectable and can look *stuck*. Fixes: (a) a reassurance line — *"First launch installs
+  your software; this can take a few minutes — you can connect as soon as the box is running"*;
+  (b) a **soft timeout** — after ~6 min still "installing", soften the copy to *"install may still be
+  finishing — you can connect and check"* rather than an indefinite spinner. (c) Emphasise that the
+  **connect panel is already available while installing** (it is, but make it obvious). Frontend-only;
+  v0.1.3. **Deeper follow-up (later):** the sentinel-via-console signal is inherently fragile — a more
+  reliable "reachable" signal is EC2 **instance status checks** (`DescribeInstanceStatus`, 2/2 ok),
+  which I *removed* in the v0.1.2 policy trim; re-add that small grant and split "reachable" (status
+  checks, reliable) from "software installed" (console sentinel, best-effort) so connecting is never
+  gated on the flaky signal.
 - ⬜ **UX: number inputs render `0` / concatenate to `04`** — `LaunchForm.tsx` binds
   `value={cfg.autoTerminateHours ?? 0}`, so clearing the field (`Number("")||undefined`) shows the
   literal "0"; typing `4` then appends → "04". Fix: `value={… ?? ""}` (empty, not "0") + `min={1}`,
