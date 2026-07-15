@@ -3,7 +3,7 @@ import { api } from "./api";
 import { host, type AccessState } from "./host";
 import { LaunchForm } from "./LaunchForm";
 import { VmCard } from "./VmCard";
-import type { Meta, VmConfig, VmSummary } from "./types";
+import { computeRunRate, formatUsd, type Meta, type VmConfig, type VmSummary } from "./types";
 
 // Served from frontend/public → dist root; same file the manifest declares as the app icon.
 const icon = "./vmpoppy-icon.png";
@@ -89,6 +89,19 @@ export function App() {
     }
   }
 
+  // Stash a config WITHOUT launching it — so a template (e.g. a long software list) can be
+  // reused later. The backend already exposes POST /configs.
+  async function saveConfig(config: VmConfig) {
+    setErr(null);
+    try {
+      setConfigs((await api.saveConfig(config)).configs);
+      setEditing(undefined);
+      await host.notify({ title: "Configuration saved", body: `“${config.name}” is in your saved configurations.` });
+    } catch (e) {
+      setErr((e as Error).message);
+    }
+  }
+
   const header = (
     <div>
       <div className="app-header">
@@ -128,7 +141,7 @@ export function App() {
       {header}
       {err && <div className="banner err" style={{ marginBottom: 14 }}>{err} <button className="btn btn-sm btn-ghost" onClick={connect}>Reconnect</button></div>}
 
-      <LaunchForm busy={launching} onLaunch={launch} initial={editing} />
+      <LaunchForm busy={launching} onLaunch={launch} onSave={saveConfig} initial={editing} />
 
       {configs.length > 0 && (
         <div className="card">
@@ -155,6 +168,27 @@ export function App() {
         <h2 className="section-title" style={{ margin: 0 }}>Running VMs</h2>
         <button className="btn btn-sm btn-ghost" onClick={refresh}>Refresh</button>
       </div>
+
+      {(() => {
+        const r = computeRunRate(running);
+        if (r.running === 0) {
+          return (
+            <div className="banner info" style={{ marginBottom: 12 }}>
+              <span className="badge ok" style={{ marginRight: 8 }}><span className="dot" />$0/hr</span>
+              Nothing running — you’re not being billed for compute{r.stopped > 0 ? `. ${r.stopped} stopped box${r.stopped > 1 ? "es" : ""} still cost a little for disk.` : "."}
+            </div>
+          );
+        }
+        return (
+          <div className="banner" style={{ marginBottom: 12, borderColor: "var(--poppy-accent)" }}>
+            <strong>Running now:</strong> {r.running} box{r.running > 1 ? "es" : ""} ≈ <strong>{formatUsd(r.hourly)}/hr</strong>
+            {r.unknownRates > 0 ? ` (+${r.unknownRates} at a custom rate)` : ""}
+            {r.stopped > 0 ? ` · ${r.stopped} stopped (disk only)` : ""}
+            <span className="muted"> · approx, compute-only. Tear down to reach $0.</span>
+          </div>
+        );
+      })()}
+
       {running.length === 0
         ? <div className="card"><span className="muted">No VMs yet. Configure one above and hit Deploy — it boots in under a minute and installs your software automatically.</span></div>
         : running.map((vm) => <VmCard key={vm.instanceId} vm={vm} onChanged={refresh} />)}

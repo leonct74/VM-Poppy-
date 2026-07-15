@@ -4,6 +4,7 @@ import { OS_CATALOG, SIZE_CATALOG, type OsKey, type VmConfig } from "./types";
 interface Props {
   busy: boolean;
   onLaunch: (config: VmConfig) => void;
+  onSave: (config: VmConfig) => void;
   initial?: VmConfig;
 }
 
@@ -28,7 +29,7 @@ function defaults(): VmConfig {
   };
 }
 
-export function LaunchForm({ busy, onLaunch, initial }: Props) {
+export function LaunchForm({ busy, onLaunch, onSave, initial }: Props) {
   const [cfg, setCfg] = useState<VmConfig>(initial ?? defaults());
   const [pro, setPro] = useState(false);
   const [softwareText, setSoftwareText] = useState((initial?.software ?? []).join(", "));
@@ -58,10 +59,10 @@ export function LaunchForm({ busy, onLaunch, initial }: Props) {
     setCfg((c) => ({ ...c, instanceType: type, arch: size.arch }));
   }
 
-  function submit() {
+  function buildConfig(): VmConfig {
     const software = softwareText.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
     const name = cfg.name.trim() || `${osInfo.label} box`;
-    onLaunch({ ...cfg, name, software });
+    return { ...cfg, name, software };
   }
 
   return (
@@ -164,8 +165,11 @@ export function LaunchForm({ busy, onLaunch, initial }: Props) {
       )}
 
       <div className="row" style={{ marginTop: 12 }}>
-        <button className="btn btn-primary" disabled={busy} onClick={submit}>
+        <button className="btn btn-primary" disabled={busy} onClick={() => onLaunch(buildConfig())}>
           {busy ? "Launching…" : "Deploy VM"}
+        </button>
+        <button className="btn" disabled={busy} onClick={() => onSave(buildConfig())} title="Save this configuration to reuse later, without launching a VM now">
+          Save config
         </button>
         {cfg.lifecycle === "ephemeral" && <span className="badge warn"><span className="dot" />self-destructs</span>}
         {cfg.purchasing === "spot" && <span className="badge">spot</span>}

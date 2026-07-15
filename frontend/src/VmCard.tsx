@@ -15,6 +15,7 @@ function stateBadge(vm: VmSummary) {
     return <span className="badge run"><span className="dot" />running</span>;
   }
   if (vm.state === "pending") return <span className="badge warn"><span className="spinner" />booting…</span>;
+  if (vm.state === "shutting-down") return <span className="badge warn"><span className="spinner" />terminating…</span>;
   if (vm.state === "stopped") return <span className="badge"><span className="dot" />stopped</span>;
   return <span className="badge"><span className="dot" />{vm.state}</span>;
 }
@@ -119,10 +120,15 @@ export function VmCard({ vm, onChanged }: Props) {
         <div className="scrim" onClick={() => setConfirmKill(false)}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h3 style={{ marginTop: 0 }}>Tear down “{vm.name}”?</h3>
-            <p className="muted-2">This permanently terminates instance <span className="chip">{vm.instanceId}</span>, deletes its disk, security group and key pair, and <strong>cannot be undone</strong>. Anything on the box is lost.</p>
+            <p className="muted-2">This permanently <strong>terminates</strong> instance <span className="chip">{vm.instanceId}</span> (“terminate” is AWS’s word for delete) and removes its disk, security group and key pair. It <strong>cannot be undone</strong> and anything on the box is lost.</p>
+            <p className="muted-2" style={{ marginTop: -4 }}>It <strong>stops billing immediately</strong>. In your AWS console it will show as <span className="chip">Terminated</span> for up to an hour, then disappear — that’s the fully-deleted state, not “stopped”.</p>
             <div className="row" style={{ justifyContent: "flex-end", marginTop: 16 }}>
               <button className="btn" autoFocus onClick={() => setConfirmKill(false)}>Cancel</button>
-              <button className="btn btn-danger" disabled={!!busy} onClick={() => act("kill", async () => { await api.terminate(vm.instanceId); setConfirmKill(false); })}>
+              <button className="btn btn-danger" disabled={!!busy} onClick={() => act("kill", async () => {
+                await api.terminate(vm.instanceId);
+                setConfirmKill(false);
+                await host.notify({ title: "VM terminated", body: `“${vm.name}” is being deleted (AWS: “Terminated”) — no longer billing.` });
+              })}>
                 {busy === "kill" ? <><span className="spinner" /> Tearing down…</> : "Tear down"}
               </button>
             </div>

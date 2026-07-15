@@ -261,8 +261,17 @@ vm-poppy/
 
 **Released:** v0.1.0 (first catalogue listing) → v0.1.1 (supervised-approval credential minting) →
 v0.1.2 (trimmed permission set so the STS session policy fits) → v0.1.3 (Windows-connect fix + UX
-polish batch) → **v0.1.4** (app-scoped listing/teardown — fixes orphaned VMs after an update).
-Live-tested in AgentsPoppy against the user's real AWS.
+polish batch) → v0.1.4 (app-scoped listing/teardown — fixes orphaned VMs) → **v0.1.5** (billing
+clarity: live run-rate + teardown terminology + Save-config). Live-tested against the user's real AWS.
+
+**v0.1.5 shipped (2026-07-15) — "billing clarity" batch.** ✅ **Live run-rate** above the VM list —
+"Running now: N boxes ≈ $X/hr" from the app's own inventory × `HOURLY_USD`, and a reassuring "Nothing
+running — you're not being billed for compute · $0/hr" when empty (compute-only estimate; stopped
+boxes noted separately) · ✅ **Teardown terminology** — the confirm dialog names AWS's word ("terminate
+= delete; stops billing immediately; shows as **Terminated** ~1h then disappears"), `shutting-down`
+reads "terminating…", and a post-teardown notification confirms "no longer billing" instead of the card
+silently vanishing · ✅ **Save config** button (calls the existing `POST /configs`). *Deferred:* region
+picker, live Price List API, per-poppy/actual month-to-date (host-side).
 
 **v0.1.4 shipped (2026-07-15) — CRITICAL orphan fix.** `ownInstancesFilter` (and the ownership
 guard + teardown sweep) filtered by `agentspoppy:connection` = the *current* connection id. But every
