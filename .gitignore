@@ -3,7 +3,7 @@ dist/
 frontend/dist/
 backend/build/
 backend/vmpoppy-sidecar
-backend/vmpoppy-sidecar-*
+backend/vmpoppy-sidecar*
 *.tsbuildinfo
 .DS_Store
 # Local runtime state written by the sidecar (never commit user keys/configs)

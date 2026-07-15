@@ -20,7 +20,13 @@ import { fileURLToPath } from "node:url";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRoot = join(root, "backend");
 const buildDir = join(backendRoot, "build");
-const outBin = join(backendRoot, "vmpoppy-sidecar"); // = extension.json backend.entry
+
+// Cross-target: `--win32` (or VMPOPPY_TARGET_PLATFORM=win32) builds the Windows
+// sidecar FROM macOS/Linux — the SEA blob is platform-portable (no code cache /
+// snapshot), so it's injected into the official win-x64 node.exe of the SAME
+// version as the node running this script (blob/base versions must match).
+const targetWin32 = process.argv.includes("--win32") || process.env.VMPOPPY_TARGET_PLATFORM === "win32";
+const outBin = join(backendRoot, targetWin32 ? "vmpoppy-sidecar.exe" : "vmpoppy-sidecar"); // = extension.json backend.entry (+.exe on Windows)
 
 // Node's stable SEA fuse sentinel (nodejs.org/api/single-executable-applications).
 const SEA_FUSE = "NODE_SEA_FUSE_fce680ab2cc467b6e072b8b5df1996b2";
@@ -77,8 +83,35 @@ function ensureBuildableNode() {
   process.exit(0);
 }
 
+/**
+ * Fetch (and cache) the official Windows x64 node of THIS node's exact version,
+ * integrity-checked against nodejs.org's SHASUMS256.txt. Returns the node.exe path.
+ */
+function fetchWindowsNode() {
+  const v = process.versions.node; // blob generator and SEA base MUST match versions
+  const name = `node-v${v}-win-x64`;
+  const cacheDir = join(buildDir, "node-cache");
+  const exePath = join(cacheDir, `${name}-node.exe`);
+  if (existsSync(exePath)) return exePath;
+  mkdirSync(cacheDir, { recursive: true });
+  const zipPath = join(cacheDir, `${name}.zip`);
+  const base = `https://nodejs.org/dist/v${v}`;
+  console.log(`[win32] downloading ${base}/${name}.zip`);
+  run("curl", ["-fsSL", "-o", zipPath, `${base}/${name}.zip`]);
+  // Verify against the official checksum list before touching the archive.
+  const sums = execFileSync("curl", ["-fsSL", `${base}/SHASUMS256.txt`]).toString();
+  const expected = sums.split("\n").find((l) => l.trim().endsWith(`${name}.zip`))?.split(/\s+/)[0];
+  if (!expected) throw new Error(`no SHASUMS256 entry for ${name}.zip`);
+  const actual = execFileSync("shasum", ["-a", "256", zipPath]).toString().split(/\s+/)[0];
+  if (actual !== expected) throw new Error(`checksum mismatch for ${name}.zip: got ${actual}, expected ${expected}`);
+  console.log(`[win32] sha256 verified: ${actual}`);
+  run("unzip", ["-j", "-o", "-q", zipPath, `${name}/node.exe`, "-d", cacheDir]);
+  copyFileSync(join(cacheDir, "node.exe"), exePath);
+  return exePath;
+}
+
 async function main() {
-  ensureBuildableNode();
+  if (!targetWin32) ensureBuildableNode();
   const bundlePath = join(buildDir, "sidecar.cjs");
   const blobPath = join(buildDir, "sidecar.blob");
   const seaConfigPath = join(buildDir, "sea-config.json");
@@ -112,7 +145,9 @@ async function main() {
   //    is ideal), e.g.  arch -x86_64 /usr/local/bin/node scripts/build-sidecar.mjs
   console.log("[3/5] stage node binary →", outBin);
   const targetArch = process.env.VMPOPPY_TARGET_ARCH || nativeArch();
-  if (process.platform === "darwin") {
+  if (targetWin32) {
+    copyFileSync(fetchWindowsNode(), outBin);
+  } else if (process.platform === "darwin") {
     const slices = execFileSync("lipo", ["-archs", process.execPath]).toString().trim().split(/\s+/);
     if (!slices.includes(targetArch)) {
       throw new Error(
@@ -127,21 +162,22 @@ async function main() {
   }
   chmodSync(outBin, 0o755);
 
-  // 4. macOS: strip the existing signature before injecting the blob.
-  if (process.platform === "darwin") {
+  // 4. macOS targets: strip the existing signature before injecting the blob.
+  //    (PE/Windows binaries carry no Mach-O signature — nothing to strip.)
+  if (!targetWin32 && process.platform === "darwin") {
     console.log("[4/5] codesign --remove-signature");
     run("codesign", ["--remove-signature", outBin]);
   } else {
-    console.log("[4/5] (no signature to strip on this platform)");
+    console.log("[4/5] (no signature to strip for this target)");
   }
 
-  // 5. Inject the SEA blob and re-sign ad-hoc so macOS will run it.
-  console.log("[5/5] postject inject + re-sign");
+  // 5. Inject the SEA blob; re-sign ad-hoc on macOS targets so macOS will run it.
+  console.log("[5/5] postject inject" + (!targetWin32 && process.platform === "darwin" ? " + re-sign" : ""));
   await inject(outBin, "NODE_SEA_BLOB", readFileSync(blobPath), {
     sentinelFuse: SEA_FUSE,
-    machoSegmentName: process.platform === "darwin" ? "NODE_SEA" : undefined,
+    machoSegmentName: !targetWin32 && process.platform === "darwin" ? "NODE_SEA" : undefined,
   });
-  if (process.platform === "darwin") run("codesign", ["--sign", "-", outBin]);
+  if (!targetWin32 && process.platform === "darwin") run("codesign", ["--sign", "-", outBin]);
 
   console.log(`\n✅ sidecar binary ready: ${outBin}`);
 }
