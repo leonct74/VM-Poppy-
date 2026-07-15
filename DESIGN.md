@@ -87,9 +87,19 @@ real `assessPermissionSet` (cleaner than MailPoppy itself, which carries 3 legit
 
 | Grant | Scope | Why |
 |---|---|---|
-| `Describe*` (instances, images, types, SGs, VPCs, subnets, AZs, key pairs, volumes) | `*` | Reads. `Describe*` has **no** resource-level permissions in EC2 — `*` is the only option, and reads-on-`*` are amber. |
-| `RunInstances`, `CreateSecurityGroup`, `CreateKeyPair`, `ImportKeyPair`, `CreateVolume`, `CreateTags` | `*` | Pure **creates** — additive, cannot harm what exists (amber). They reference untagged/foreign resources (VPC, subnet, AMI) so they *cannot* be tag-scoped. Every create stamps the three attribution tags (§5). |
-| `Terminate/Stop/Start/ModifyInstanceAttribute`, `Attach/Detach/DeleteVolume`, `Authorize/Revoke/DeleteSecurityGroup`, `DeleteKeyPair`, **`GetConsoleOutput`, `GetPasswordData`** | **`tagged-as-self`** | Every **mutate-existing** call is limited to resources carrying this connection's tag → it can only ever touch boxes it launched. All these EC2 actions support `aws:ResourceTag`, so the scope is real at AWS, not cosmetic. |
+| `DescribeInstances/Images/SecurityGroups/Vpcs/Subnets` | `*` | Reads the backend actually performs. `Describe*` has **no** resource-level permissions in EC2 — `*` is the only option, and reads-on-`*` are amber. |
+| `RunInstances`, `CreateSecurityGroup`, `CreateKeyPair`, `CreateTags` | `*` | Pure **creates** — additive, cannot harm what exists (amber). They reference untagged/foreign resources (VPC, subnet, AMI) so they *cannot* be tag-scoped. Every create stamps the three attribution tags (§5); `CreateTags` is what tagging-on-create (`TagSpecifications`) requires. |
+| `Terminate/Stop/StartInstances`, `AuthorizeSecurityGroupIngress`, `RevokeSecurityGroupEgress`, `DeleteSecurityGroup`, `DeleteKeyPair`, **`GetConsoleOutput`, `GetPasswordData`** | **`tagged-as-self`** | Every **mutate-existing** call is limited to resources carrying this connection's tag → it can only ever touch boxes it launched. All these EC2 actions support `aws:ResourceTag`, so the scope is real at AWS, not cosmetic. |
+
+**The set is exactly the calls the backend makes — nothing speculative.** v0.1.1 shipped 31
+actions (volumes, ImportKeyPair, ModifyInstanceAttribute… for unshipped features) and STS
+rejected the vend: *"Packed policy consumes 118% of allotted space"* — the broker's inline
+session policy (one statement per grant, actions verbatim) + the three session tags overflow
+STS's packed budget long before the nominal 2048-char plaintext limit. Trimming to the 18
+actually-used actions → 736 chars ≈ 82% packed. **Lesson (DR5): the framework's "over-asking
+is a defect" rule is mechanically enforced by STS — declare only what you call, and re-add
+actions in the release that ships the feature needing them (a manifest change triggers
+re-approval anyway).**
 
 **Decisions of record:**
 
