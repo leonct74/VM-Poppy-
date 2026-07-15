@@ -354,6 +354,15 @@ Price List API (§14), "Save configuration" button (§9), region picker, reusabl
   second client there; the per-item price is buried under `terms.OnDemand.…pricePerUnit.USD` (fiddly
   but bounded) — cache per (instanceType × region × OS).
 
+- ⭐ **HIGH PRIORITY — live "run-rate" cost indicator (poppy-side, anxiety-killer).** Users
+  repeatedly ask to *see current billing*; the deepest need is simply **"is anything billing right
+  now?"** VM-Poppy already lists its running VMs + instance types, so it can sum the hourly estimates
+  and show a live line — *"Currently running: 1 × t3.large ≈ $0.08/hr"* — and, crucially, **"Nothing
+  running — $0/hr"** when empty. No Cost Explorer, no new grant, no 24h lag. Caveats to surface: it's
+  an estimate (Windows/region nudge it), it's **compute-only** (a *stopped* box still bills a little
+  for its disk — count stopped boxes separately as "~$X/mo disk"). This is the single most reassuring
+  thing we can add; do it early (v0.1.5/0.1.6). The exact *actual* spend is tiers 2–3 below.
+
 ### Boundary note — cost *estimates* are the poppy's job; actual *spend* is the host's
 
 Deliberately **NOT** a VM-Poppy feature: **month-to-date cost** and **forecasted month-end cost**
