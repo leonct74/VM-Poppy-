@@ -9,7 +9,7 @@
     "backend"
   ],
   "scripts": {
-    "typecheck": "tsc -b",
+    "typecheck": "npm run typecheck --workspaces --if-present",
     "test": "npm run test --workspaces --if-present",
     "build": "npm run build:frontend && npm run build:sidecar",
     "build:frontend": "npm run build -w @vmpoppy/frontend",

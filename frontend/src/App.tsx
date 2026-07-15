@@ -141,7 +141,9 @@ export function App() {
       {header}
       {err && <div className="banner err" style={{ marginBottom: 14 }}>{err} <button className="btn btn-sm btn-ghost" onClick={connect}>Reconnect</button></div>}
 
-      <LaunchForm busy={launching} onLaunch={launch} onSave={saveConfig} initial={editing} />
+      {/* key remounts the form when an Edit begins/ends — useState(initial) only reads the prop on mount */}
+      <LaunchForm key={editing?.id ?? "new"} busy={launching} onLaunch={launch} onSave={saveConfig}
+        onCancel={() => setEditing(undefined)} initial={editing} />
 
       {configs.length > 0 && (
         <div className="card">
@@ -155,7 +157,7 @@ export function App() {
                 </div>
                 <div className="row">
                   <button className="btn btn-sm" disabled={launching} onClick={() => launch(c)}>Deploy</button>
-                  <button className="btn btn-sm btn-ghost" onClick={() => setEditing({ ...c })}>Edit</button>
+                  <button className="btn btn-sm btn-ghost" onClick={() => { setEditing({ ...c }); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Edit</button>
                   <button className="btn btn-sm btn-ghost" onClick={async () => setConfigs((await api.deleteConfig(c.id)).configs)}>Delete</button>
                 </div>
               </div>

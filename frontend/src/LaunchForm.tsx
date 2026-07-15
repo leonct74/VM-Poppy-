@@ -5,6 +5,7 @@ interface Props {
   busy: boolean;
   onLaunch: (config: VmConfig) => void;
   onSave: (config: VmConfig) => void;
+  onCancel?: () => void;
   initial?: VmConfig;
 }
 
@@ -29,7 +30,7 @@ function defaults(): VmConfig {
   };
 }
 
-export function LaunchForm({ busy, onLaunch, onSave, initial }: Props) {
+export function LaunchForm({ busy, onLaunch, onSave, onCancel, initial }: Props) {
   const [cfg, setCfg] = useState<VmConfig>(initial ?? defaults());
   const [pro, setPro] = useState(false);
   const [softwareText, setSoftwareText] = useState((initial?.software ?? []).join(", "));
@@ -68,7 +69,7 @@ export function LaunchForm({ busy, onLaunch, onSave, initial }: Props) {
   return (
     <div className="card">
       <div className="spread" style={{ marginBottom: 12 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>New VM</h2>
+        <h2 className="section-title" style={{ margin: 0 }}>{initial ? `Edit “${initial.name}”` : "New VM"}</h2>
         <div className="tabs">
           <button className={`tab ${!pro ? "active" : ""}`} onClick={() => setPro(false)}>Quick</button>
           <button className={`tab ${pro ? "active" : ""}`} onClick={() => setPro(true)}>PRO</button>
@@ -169,8 +170,11 @@ export function LaunchForm({ busy, onLaunch, onSave, initial }: Props) {
           {busy ? "Launching…" : "Deploy VM"}
         </button>
         <button className="btn" disabled={busy} onClick={() => onSave(buildConfig())} title="Save this configuration to reuse later, without launching a VM now">
-          Save config
+          {initial ? "Save changes" : "Save config"}
         </button>
+        {initial && onCancel && (
+          <button className="btn btn-ghost" disabled={busy} onClick={onCancel}>Cancel</button>
+        )}
         {cfg.lifecycle === "ephemeral" && <span className="badge warn"><span className="dot" />self-destructs</span>}
         {cfg.purchasing === "spot" && <span className="badge">spot</span>}
       </div>
