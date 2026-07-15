@@ -194,6 +194,18 @@ Saved `VmConfig`s are user preferences, not cloud state, so they live **locally*
 DynamoDB → nothing extra to provision or tear down. **Live VM state is never read from here** — it
 is always reconstructed from `DescribeInstances` by tag (§10).
 
+**Shipped today:** persistence (`GET`/`POST`/`DELETE /configs`) + a **"Saved configurations"** list
+in the UI with **Deploy / Edit / Delete**. Deploying a saved config launches a *fresh* box from it,
+so the core "define once → deploy-and-throwaway repeatedly → pick the config back up" loop already
+works (pair it with the **ephemeral** lifecycle).
+
+> **FOLLOW-UP — "Save without launching".** A config is currently persisted only as a side effect of
+> **Deploy** (`launch()` saves it). There's no standalone **Save** button, so you can't stash a
+> config (e.g. a long software list) to reuse *later* without deploying it once first. The backend
+> already supports it (`POST /configs`); this is a **frontend-only** add: a "Save configuration"
+> button in the launch form that calls `api.saveConfig(config)` and refreshes the list, plus letting
+> the user name/duplicate a config. Small; bundle with the other UI polish (§6 auto-terminate field).
+
 ## 10. Background & resume (framework requirement)
 
 Deploys/installs run server-side and can take minutes. On every mount the frontend reconstructs
@@ -263,3 +275,6 @@ vm-poppy/
 - ⬜ **UX: `autoTerminateHours` on reusable boxes** — the field is shown but not enforced (§6 known
   gap). Either make the timer real (stop-at-TTL, keeping amber/no-IAM) or hide the field unless the
   "throwaway" lifecycle is selected. Do this before promoting the poppy widely.
+- ⬜ **UX: "Save configuration" button** (§9 follow-up) — persist a config without deploying it,
+  so a long-software template can be stashed and reused later. Backend endpoint already exists;
+  frontend-only. Bundle with the auto-terminate field fix as a v0.1.3 UI-polish release.
