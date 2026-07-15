@@ -144,12 +144,27 @@ re-approval anyway).**
 ## 6. Lifecycle: reusable vs ephemeral, and self-termination
 
 - **reusable** (default): shutdown behavior = *stop*, so **Stop/Start** preserves the box and its
-  installed software (small EBS cost while stopped). `autoTerminateHours` is a best-effort timer
-  the backend enforces while the app is open, plus manual **Tear down**. Default TTL **on**.
+  installed software (small EBS cost while stopped). Manual **Tear down** is always available.
 - **ephemeral** (opt-in, ideal for detonation/vetting): `InstanceInitiatedShutdownBehavior=terminate`
   + a hard `shutdown -h +N` in user-data → the box **self-destructs** even if the app is closed,
   and `DeleteOnTermination` wipes its volume. No Stop/Start. Needs **no IAM role and no Lambda** —
   the cost guarantee is baked into the instance.
+
+> **⚠️ KNOWN UX GAP — `autoTerminateHours` on a reusable box does nothing (fix before promoting).**
+> The self-shutdown is written into user-data **only for ephemeral** configs (§7). A *reusable* box
+> keeps `shutdown` behaviour = stop (so Stop/Start works), so it can't self-terminate — yet the
+> launch form still shows the "auto-terminate after (hours) — safety net" field for it, implying a
+> guarantee that isn't wired. A user who picks "Keep it" and forgets keeps **billing compute**
+> indefinitely. Resolve one of two ways:
+> 1. **Make the timer real for reusable** — e.g. a tiny per-connection EventBridge Scheduler +
+>    `TerminateInstances` rule in the footprint (adds an IAM role → would push the rating to red,
+>    so undesirable), OR a self-scheduled `shutdown` that only *stops* at the TTL (cheaper: halts
+>    compute, leaves the disk), OR a backend/host cron that terminates aged tagged boxes. Prefer the
+>    stop-at-TTL variant to keep the amber, no-IAM posture.
+> 2. **Hide the field unless ephemeral** — simplest honest fix: only render the "auto-terminate"
+>    control when lifecycle = "throwaway", so the UI never promises a safety net it can't keep.
+> (Interim guidance already given to the user: use **ephemeral** for a real cost cap; tear down
+> reusable boxes manually.)
 
 ## 7. Software install & progress — without any IAM
 
@@ -245,3 +260,6 @@ vm-poppy/
 - ⬜ Live end-to-end test inside AgentsPoppy against a throwaway AWS account (install-dev →
   approve → deploy a VM → connect → teardown), then `npm run certify`.
 - ⬜ Windows/Linux target builds + signing/notarisation for public distribution.
+- ⬜ **UX: `autoTerminateHours` on reusable boxes** — the field is shown but not enforced (§6 known
+  gap). Either make the timer real (stop-at-TTL, keeping amber/no-IAM) or hide the field unless the
+  "throwaway" lifecycle is selected. Do this before promoting the poppy widely.
