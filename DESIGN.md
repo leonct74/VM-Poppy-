@@ -290,11 +290,28 @@ vm-poppy/
 - ⬜ **UX: "Save configuration" button** (§9 follow-up) — persist a config without deploying it,
   so a long-software template can be stashed and reused later. Backend endpoint already exists;
   frontend-only. Bundle with the auto-terminate field fix as a v0.1.3 UI-polish release.
-- ⬜ **UX: price display is hardcoded + ambiguous currency** — `SIZE_CATALOG` (frontend/src/types.ts)
-  carries strings like `~1.7¢/hr`. Two fixes: (a) use an **explicit currency** — `~$0.017/hr`, not
-  `¢` (which doesn't say USD); (b) label them **approximate** ("approx · varies by region/OS";
-  Windows carries a license charge). **Decision: keep them hardcoded, NOT live.** The AWS Pricing
-  API needs a `pricing:GetProducts` grant (eats the session-policy headroom we just recovered),
-  is us-east-1-only + heavyweight, and real prices vary by region/OS/tenancy anyway — so a live
-  number is still an approximation. Centralised estimates + an honest "approx" label is the right
-  trade; a pricing change is then a one-line-per-size edit. Frontend-only; fold into v0.1.3.
+- ⬜ **UX: price display — hardcoded now, LIVE later.** `SIZE_CATALOG` (frontend/src/types.ts) carries
+  strings like `~1.7¢/hr`. **v0.1.3 (frontend-only):** explicit USD (`~$0.017/hr`, not the ambiguous
+  `¢`) + an **"approx · varies by region/OS"** label. **Proper fix (later, small backend feature):**
+  query the **AWS Price List Query API** (`pricing:GetProducts`) live for the instance types VM-Poppy
+  offers, in the connected region → always-current prices, kills the stale-hardcoded problem.
+  *(Correction to an earlier note here: the "Pricing API is too big / eats policy headroom" objection
+  was overstated. A FILTERED query returns one price, not the bulk offer file; the grant is a single
+  read-only `pricing:GetProducts` — stays amber, ~+100 chars of session policy, well within budget.)*
+  Caveats: the Pricing API is only callable from a pricing-enabled region (us-east-1), so it needs a
+  second client there; the per-item price is buried under `terms.OnDemand.…pricePerUnit.USD` (fiddly
+  but bounded) — cache per (instanceType × region × OS).
+
+### Boundary note — cost *estimates* are the poppy's job; actual *spend* is the host's
+
+Deliberately **NOT** a VM-Poppy feature: **month-to-date cost** and **forecasted month-end cost**
+(`ce:GetCostAndUsage` / `ce:GetCostForecast`). Those are **account-wide financial data** — a poppy
+showing the whole account's spend is both wrong (it's not *its* cost) and an over-grant (`ce:*` reaches
+far beyond "its own resources"). They belong to **AgentsPoppy (the host)**, which already holds the
+operator credentials + the account-wide view. Nice synergy for the host to exploit: every resource is
+already stamped `agentspoppy:app`, and Cost Explorer can **group by tag**, so the host can show a
+**per-poppy cost breakdown** ("VM-Poppy cost you $X this month") reusing the attribution tags that
+already exist for teardown. Host-side caveats: Cost Explorer lags ~24h + costs $0.01/request, and the
+`agentspoppy:app` tag must be **activated as a cost-allocation tag** in Billing (one-time, no backfill).
+→ Logged for the **agentspoppy** roadmap, not this repo. The clean split: the poppy **quotes** (price
+list), the host shows the **invoice** (Cost Explorer).
