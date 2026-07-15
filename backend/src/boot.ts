@@ -46,41 +46,99 @@ interface ScopedCredentialsDTO {
   expiration: string;
 }
 
+/** True when the body is a full scoped-credentials object (not a 202 approval envelope). */
+function isScopedCredentials(v: unknown): v is ScopedCredentialsDTO {
+  const c = v as Partial<ScopedCredentialsDTO> | null;
+  return (
+    !!c &&
+    typeof c.accessKeyId === "string" &&
+    typeof c.secretAccessKey === "string" &&
+    typeof c.sessionToken === "string" &&
+    !!c.expiration
+  );
+}
+
+/** Injectable deps so the mint/approval logic is unit-testable without real fetch/timers. */
+export interface CredentialDeps {
+  fetchImpl?: typeof fetch;
+  sleep?: (ms: number) => Promise<void>;
+}
+
+const APPROVAL_POLL_MS = 2000;
+
 /**
  * An auto-refreshing credential provider backed by the broker's mint endpoint.
- * Caches the last mint until ~5 min before expiry, then re-mints. Surfaces a clear
- * error when the broker refuses (paused/revoked/AWS-access lapsed) — never falls
- * back to broader creds (framework decision D1).
+ *
+ * A NORMAL connection answers the mint at once (200 + scoped credentials). A
+ * *supervised* connection answers `202 { approvalRequired, approval }` — the user must
+ * approve in the AgentsPoppy window — so we poll (echoing the approval id) until it's
+ * approved (→ credentials) or denied (→ error). A 202 is still `res.ok`, so we MUST
+ * distinguish by body shape, not status — mishandling this yields the AWS SDK's
+ * "Resolved credential object is not valid". Mirrors MailPoppy's proven minter.
+ *
+ * Caches until ~5 min before expiry, then re-mints. Never falls back to broader creds
+ * when the broker refuses (framework decision D1).
  */
-export function brokerCredentialsProvider(boot: BackendBootstrap): AwsCredentialIdentityProvider {
+export function brokerCredentialsProvider(
+  boot: BackendBootstrap,
+  deps: CredentialDeps = {},
+): AwsCredentialIdentityProvider {
+  const doFetch = deps.fetchImpl ?? fetch;
+  const sleep = deps.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
   let cached: AwsCredentialIdentity | null = null;
+
+  const post = (body?: unknown): Promise<Response> => {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers["content-type"] = "application/json";
+    if (boot.credentialsToken) headers["authorization"] = `Bearer ${boot.credentialsToken}`;
+    return doFetch(boot.credentialsUrl, {
+      method: "POST",
+      headers: Object.keys(headers).length ? headers : undefined,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  };
+
+  async function mint(): Promise<AwsCredentialIdentity> {
+    let res = await post();
+    for (;;) {
+      if (!res.ok) {
+        let message = `AgentsPoppy won't grant AWS access right now (${res.status}). Check that VM-Poppy is connected and your AWS access is healthy in AgentsPoppy.`;
+        try {
+          const b = (await res.json()) as { message?: string };
+          if (b?.message) message = b.message;
+        } catch {
+          /* keep the status-based message */
+        }
+        // A pending approval has a short TTL; if it lapsed mid-wait, transparently re-request.
+        if (/expired|already been used|request again/i.test(message)) {
+          await sleep(APPROVAL_POLL_MS);
+          res = await post();
+          continue;
+        }
+        throw new Error(message);
+      }
+      const body: unknown = await res.json();
+      if (isScopedCredentials(body)) {
+        return {
+          accessKeyId: body.accessKeyId,
+          secretAccessKey: body.secretAccessKey,
+          sessionToken: body.sessionToken,
+          expiration: new Date(body.expiration),
+        };
+      }
+      // Not credentials → a supervised-approval envelope. Poll until the user decides.
+      const approvalId = (body as { approval?: { id?: string } })?.approval?.id;
+      if (!approvalId) throw new Error("AgentsPoppy returned an unexpected credentials response.");
+      await sleep(APPROVAL_POLL_MS);
+      res = await post({ approvalId });
+    }
+  }
 
   return async () => {
     if (cached?.expiration && cached.expiration.getTime() - Date.now() > REFRESH_BUFFER_MS) {
       return cached;
     }
-    const res = await fetch(boot.credentialsUrl, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        ...(boot.credentialsToken ? { authorization: `Bearer ${boot.credentialsToken}` } : {}),
-      },
-    });
-    if (!res.ok) {
-      const text = await res.text().catch(() => "");
-      throw new Error(
-        `AgentsPoppy won't grant AWS access right now (${res.status}). ` +
-          `Check that VM-Poppy is connected and your AWS access is healthy in AgentsPoppy.` +
-          (text ? ` [${text.slice(0, 200)}]` : ""),
-      );
-    }
-    const dto = (await res.json()) as ScopedCredentialsDTO;
-    cached = {
-      accessKeyId: dto.accessKeyId,
-      secretAccessKey: dto.secretAccessKey,
-      sessionToken: dto.sessionToken,
-      expiration: dto.expiration ? new Date(dto.expiration) : undefined,
-    };
+    cached = await mint();
     return cached;
   };
 }
