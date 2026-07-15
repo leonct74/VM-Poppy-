@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "./api";
+import { CopyButton } from "./CopyButton";
 import { host } from "./host";
 import type { VmSummary } from "./types";
 
@@ -96,16 +97,22 @@ export function VmCard({ vm, onChanged }: Props) {
           <div className="section-title">Connect</div>
           {vm.platform === "windows" ? (
             <div className="stack">
-              <div className="muted-2">
-                In your RDP client (e.g. Windows App), the <strong>“PC name”</strong> is this address:{" "}
-                <span className="chip" style={{ userSelect: "all" }}>{ip ?? "…"}</span> — sign in as{" "}
-                <span className="chip">Administrator</span>
+              <div className="muted-2 row" style={{ flexWrap: "wrap", gap: 4 }}>
+                <span>In your RDP client (e.g. Windows App), the <strong>“PC name”</strong> is this address:</span>
+                <span className="chip" style={{ userSelect: "all" }}>{ip ?? "…"}</span>
+                {ip && <CopyButton text={ip} label="address" />}
+                <span>— sign in as <span className="chip">Administrator</span></span>
               </div>
               <div className="row">
                 <button className="btn btn-sm" disabled={busy === "pwd" || pwdWaiting} onClick={revealPassword}>
                   {busy === "pwd" ? "Decrypting…" : pwdWaiting ? <><span className="spinner" /> Waiting for Windows…</> : "Reveal password"}
                 </button>
-                {secret && <span className="chip" style={{ userSelect: "all" }}>{secret}</span>}
+                {secret && (
+                  <>
+                    <span className="chip" style={{ userSelect: "all" }}>{secret}</span>
+                    <CopyButton text={secret} label="password" />
+                  </>
+                )}
               </div>
               {pwdWaiting && !secret && (
                 <div className="muted" style={{ fontSize: 12 }}>
@@ -121,7 +128,7 @@ export function VmCard({ vm, onChanged }: Props) {
                 : <div className="muted">Waiting for a public IP…</div>}
               <div className="row">
                 <button className="btn btn-sm" onClick={downloadKey} disabled={!vm.keyName}>Download SSH key</button>
-                {sshCmd && <button className="btn btn-sm btn-ghost" onClick={() => navigator.clipboard?.writeText(sshCmd)}>Copy command</button>}
+                {sshCmd && <CopyButton text={sshCmd} label="SSH command" />}
               </div>
             </div>
           )}
