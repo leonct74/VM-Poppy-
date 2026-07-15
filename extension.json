@@ -1,7 +1,7 @@
 {
   "id": "com.vmpoppy.desktop",
   "name": "VM-Poppy",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Spin up throwaway Linux or Windows VMs in your own AWS from reusable configs — install software automatically, connect, stop or tear down when you're done.",
   "icon": "frontend/vmpoppy-icon.png",
   "permissionSet": {
