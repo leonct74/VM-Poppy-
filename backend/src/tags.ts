@@ -14,6 +14,7 @@ export const TAG_CONFIG = "vmpoppy:config";
 export const TAG_NAME = "vmpoppy:name";
 export const TAG_LIFECYCLE = "vmpoppy:lifecycle";
 export const TAG_USER = "vmpoppy:user";
+export const TAG_PLATFORM = "vmpoppy:platform";
 
 export interface AttributionContext {
   accountId: string;

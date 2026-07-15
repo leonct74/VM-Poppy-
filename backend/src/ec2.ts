@@ -26,7 +26,7 @@ import {
 } from "@aws-sdk/client-ec2";
 import { privateDecrypt, constants as cryptoConstants } from "node:crypto";
 import { resolveAmi } from "./amis";
-import { attributionTags, ownInstancesFilter, tagValue, TAG_CONFIG, TAG_NAME, TAG_LIFECYCLE, TAG_USER, TAG_APP, TAG_CONNECTION, APP_ID } from "./tags";
+import { attributionTags, ownInstancesFilter, tagValue, TAG_CONFIG, TAG_NAME, TAG_LIFECYCLE, TAG_USER, TAG_PLATFORM, TAG_APP, TAG_CONNECTION, APP_ID } from "./tags";
 import { savePrivateKey, readPrivateKey } from "./configs";
 import { generateUserData } from "./userdata";
 import { detectPublicIp } from "./publicIp";
@@ -40,6 +40,25 @@ export interface Ec2Context {
 
 function shortId(): string {
   return `${Date.now().toString(36)}${Math.floor(Math.random() * 1e6).toString(36)}`;
+}
+
+/**
+ * Robust OS detection. Our own `vmpoppy:platform` tag is authoritative when present
+ * (we stamp it at launch). Otherwise fall back to EC2's fields — and note the trap
+ * this fixes: the legacy `Platform` field returns lowercase "windows" ON THE WIRE even
+ * though the SDK TYPES it "Windows", so a `=== "Windows"` check passes tsc but fails at
+ * runtime, mislabelling Windows boxes as Linux. Compare case-insensitively, and use
+ * `PlatformDetails` (contains "Windows") as a second signal.
+ */
+export function detectPlatform(inst: {
+  Platform?: string;
+  PlatformDetails?: string;
+  Tags?: { Key?: string; Value?: string }[];
+}): "linux" | "windows" {
+  const tag = tagValue(inst.Tags, TAG_PLATFORM);
+  if (tag === "windows" || tag === "linux") return tag;
+  const isWindows = (inst.Platform ?? "").toLowerCase() === "windows" || /windows/i.test(inst.PlatformDetails ?? "");
+  return isWindows ? "windows" : "linux";
 }
 
 export class Ec2Service {
@@ -67,6 +86,7 @@ export class Ec2Service {
       { Key: TAG_CONFIG, Value: config.id },
       { Key: TAG_LIFECYCLE, Value: config.lifecycle },
       { Key: TAG_USER, Value: loginUser(config.os, config.platform) },
+      { Key: TAG_PLATFORM, Value: config.platform },
       ...Object.entries(config.tags ?? {}).map(([Key, Value]) => ({ Key, Value })),
     ];
 
@@ -199,8 +219,7 @@ export class Ec2Service {
     for (const r of res.Reservations ?? []) {
       for (const inst of r.Instances ?? []) {
         if ((inst.State?.Name ?? "") === "terminated") continue;
-        const platform = inst.Platform === "Windows" ? "windows" : "linux";
-        out.push(this.toSummary(inst, platform));
+        out.push(this.toSummary(inst, detectPlatform(inst)));
       }
     }
     return out.sort((a, b) => (b.launchedAt ?? "").localeCompare(a.launchedAt ?? ""));
@@ -212,7 +231,7 @@ export class Ec2Service {
     const state = inst.State?.Name ?? "";
     if (state === "pending") return "booting";
     if (state !== "running") return "unknown";
-    const platform = inst.Platform === "Windows" ? "windows" : "linux";
+    const platform = detectPlatform(inst);
     if (platform === "windows") {
       const res = await this.ec2.send(new GetPasswordDataCommand({ InstanceId: instanceId })).catch(() => null);
       return res?.PasswordData ? "ready" : "installing";
@@ -255,7 +274,7 @@ export class Ec2Service {
 
   async windowsPassword(instanceId: string): Promise<string> {
     const inst = await this.getOwnInstance(instanceId);
-    if (inst.Platform !== "Windows") throw new Error("This is not a Windows instance.");
+    if (detectPlatform(inst) !== "windows") throw new Error("This is not a Windows instance.");
     const res = await this.ec2.send(new GetPasswordDataCommand({ InstanceId: instanceId }));
     if (!res.PasswordData) throw new Error("The Windows password isn't ready yet (it can take a few minutes after launch).");
     const pem = inst.KeyName ? readPrivateKey(inst.KeyName) : null;
