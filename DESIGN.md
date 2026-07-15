@@ -324,6 +324,16 @@ Price List API (§14), "Save configuration" button (§9), region picker, reusabl
   which I *removed* in the v0.1.2 policy trim; re-add that small grant and split "reachable" (status
   checks, reliable) from "software installed" (console sentinel, best-effort) so connecting is never
   gated on the flaky signal.
+- ⬜ **UX: teardown terminology + reassurance (from real user anxiety)** — the app said "tearing
+  down" while AWS says **"Terminated"**, with nothing connecting them, so the user couldn't tell if
+  the VM was *stopped* (still billing) or *gone*. Fix (AGENTS.md §9 "name the real thing + explain
+  it"): (a) confirm dialog names the AWS word up front — *"permanently **terminates** it (AWS's word
+  for deleted); stops billing immediately; shows as **'Terminated'** in your console for ~1h then
+  disappears"*; (b) a post-teardown **confirmation** (host notify or banner) — *"'<name>' terminated —
+  fully deleted, no longer billing"* — instead of the card silently vanishing; (c) plain state labels
+  that still match AWS — `shutting-down` → "Terminating…", and a brief "Terminated ✓ — deleted, $0".
+  Frontend-only; v0.1.5. **Host-side counterpart → agentspoppy roadmap:** the dashboard's connection
+  teardown + Resources view should use the same AWS-matching-but-explained language for *every* poppy.
 - ⬜ **UX: number inputs render `0` / concatenate to `04`** — `LaunchForm.tsx` binds
   `value={cfg.autoTerminateHours ?? 0}`, so clearing the field (`Number("")||undefined`) shows the
   literal "0"; typing `4` then appends → "04". Fix: `value={… ?? ""}` (empty, not "0") + `min={1}`,
