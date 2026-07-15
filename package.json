@@ -21,5 +21,9 @@
     "esbuild": "^0.24.0",
     "postject": "^1.0.0-alpha.6"
   },
-  "license": "SEE LICENSE IN LICENSE"
+  "license": "SEE LICENSE IN LICENSE",
+  "optionalDependencies": {
+    "@rollup/rollup-darwin-arm64": "^4.62.2",
+    "@rollup/rollup-darwin-x64": "^4.62.2"
+  }
 }

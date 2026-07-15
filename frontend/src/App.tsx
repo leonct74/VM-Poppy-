@@ -4,7 +4,9 @@ import { host, type AccessState } from "./host";
 import { LaunchForm } from "./LaunchForm";
 import { VmCard } from "./VmCard";
 import type { Meta, VmConfig, VmSummary } from "./types";
-import icon from "../vmpoppy-icon.svg";
+
+// Served from frontend/public → dist root; same file the manifest declares as the app icon.
+const icon = "./vmpoppy-icon.png";
 
 type Phase = "loading" | "gate" | "ready";
 
