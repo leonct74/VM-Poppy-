@@ -80,7 +80,7 @@ const server = createServer(async (req, res) => {
       if (parts.length >= 2) {
         const id = parts[1]!;
         if (method === "GET" && parts[2] === "install") return json(res, 200, { state: await svc.installState(id) });
-        if (method === "GET" && parts[2] === "password") return json(res, 200, { password: await svc.windowsPassword(id) });
+        if (method === "GET" && parts[2] === "password") return json(res, 200, await svc.windowsPassword(id));
         if (method === "GET" && parts[2] === "key") {
           const keyName = url.searchParams.get("keyName");
           if (!keyName) return json(res, 400, { error: "keyName is required." });

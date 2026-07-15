@@ -18,7 +18,7 @@ export const api = {
   installState: (id: string) =>
     host.invokeBackend<{ state: InstallState }>({ method: "GET", path: `/vms/${id}/install` }),
   windowsPassword: (id: string) =>
-    host.invokeBackend<{ password: string }>({ method: "GET", path: `/vms/${id}/password` }),
+    host.invokeBackend<{ ready: boolean; password?: string }>({ method: "GET", path: `/vms/${id}/password` }),
   privateKey: (id: string, keyName: string) =>
     host.invokeBackend<{ keyName: string; pem: string }>({
       method: "GET",

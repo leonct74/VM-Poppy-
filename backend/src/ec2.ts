@@ -288,14 +288,16 @@ export class Ec2Service {
 
   // ---- Windows password / key download ------------------------------------
 
-  async windowsPassword(instanceId: string): Promise<string> {
+  /** Not-ready is a normal early state (Windows generates the password minutes after first
+   *  boot), so it's reported as {ready:false} rather than thrown as an error. */
+  async windowsPassword(instanceId: string): Promise<{ ready: boolean; password?: string }> {
     const inst = await this.getOwnInstance(instanceId);
     if (detectPlatform(inst) !== "windows") throw new Error("This is not a Windows instance.");
     const res = await this.ec2.send(new GetPasswordDataCommand({ InstanceId: instanceId }));
-    if (!res.PasswordData) throw new Error("The Windows password isn't ready yet (it can take a few minutes after launch).");
+    if (!res.PasswordData) return { ready: false };
     const pem = inst.KeyName ? readPrivateKey(inst.KeyName) : null;
     if (!pem) throw new Error("The key for this instance isn't on this machine, so the password can't be decrypted.");
-    return decryptWindowsPassword(pem, res.PasswordData);
+    return { ready: true, password: decryptWindowsPassword(pem, res.PasswordData) };
   }
 
   getPrivateKey(keyName: string): string | null {

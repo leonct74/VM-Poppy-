@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "./api";
 import { host } from "./host";
 import type { VmSummary } from "./types";
@@ -25,6 +25,29 @@ export function VmCard({ vm, onChanged }: Props) {
   const [confirmKill, setConfirmKill] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [secret, setSecret] = useState<string | null>(null);
+  const [pwdWaiting, setPwdWaiting] = useState(false);
+
+  async function revealPassword() {
+    setBusy("pwd"); setErr(null);
+    try {
+      const r = await api.windowsPassword(vm.instanceId);
+      if (r.ready && r.password) { setSecret(r.password); setPwdWaiting(false); }
+      else setPwdWaiting(true); // normal early state — the effect below keeps checking
+    } catch (e) { setErr((e as Error).message); setPwdWaiting(false); }
+    finally { setBusy(null); }
+  }
+
+  // While waiting, re-ask every 15s until Windows has generated the password.
+  useEffect(() => {
+    if (!pwdWaiting || secret) return;
+    const t = window.setInterval(async () => {
+      try {
+        const r = await api.windowsPassword(vm.instanceId);
+        if (r.ready && r.password) { setSecret(r.password); setPwdWaiting(false); }
+      } catch { /* transient — keep polling */ }
+    }, 15000);
+    return () => window.clearInterval(t);
+  }, [pwdWaiting, secret, vm.instanceId]);
 
   async function act(label: string, fn: () => Promise<unknown>) {
     setBusy(label); setErr(null);
@@ -73,11 +96,17 @@ export function VmCard({ vm, onChanged }: Props) {
             <div className="stack">
               <div className="muted-2">RDP to <span className="chip">{ip ?? "…"}</span> as <span className="chip">Administrator</span></div>
               <div className="row">
-                <button className="btn btn-sm" disabled={busy === "pwd"} onClick={() => act("pwd", async () => setSecret((await api.windowsPassword(vm.instanceId)).password))}>
-                  {busy === "pwd" ? "Decrypting…" : "Reveal password"}
+                <button className="btn btn-sm" disabled={busy === "pwd" || pwdWaiting} onClick={revealPassword}>
+                  {busy === "pwd" ? "Decrypting…" : pwdWaiting ? <><span className="spinner" /> Waiting for Windows…</> : "Reveal password"}
                 </button>
                 {secret && <span className="chip" style={{ userSelect: "all" }}>{secret}</span>}
               </div>
+              {pwdWaiting && !secret && (
+                <div className="muted" style={{ fontSize: 12 }}>
+                  Windows generates the Administrator password during its first minutes after launch — nothing is wrong.
+                  I’ll keep checking and show it here the moment it’s ready.
+                </div>
+              )}
             </div>
           ) : (
             <div className="stack">
