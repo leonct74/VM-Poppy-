@@ -287,6 +287,11 @@ vm-poppy/
 - ⬜ **UX: `autoTerminateHours` on reusable boxes** — the field is shown but not enforced (§6 known
   gap). Either make the timer real (stop-at-TTL, keeping amber/no-IAM) or hide the field unless the
   "throwaway" lifecycle is selected. Do this before promoting the poppy widely.
+- ⬜ **UX: number inputs render `0` / concatenate to `04`** — `LaunchForm.tsx` binds
+  `value={cfg.autoTerminateHours ?? 0}`, so clearing the field (`Number("")||undefined`) shows the
+  literal "0"; typing `4` then appends → "04". Fix: `value={… ?? ""}` (empty, not "0") + `min={1}`,
+  and parse `""`→undefined on change. Same shape on the PRO **Root disk** input (line ~132). Trivial
+  frontend fix; v0.1.3.
 - ⬜ **UX: "Save configuration" button** (§9 follow-up) — persist a config without deploying it,
   so a long-software template can be stashed and reused later. Backend endpoint already exists;
   frontend-only. Bundle with the auto-terminate field fix as a v0.1.3 UI-polish release.
