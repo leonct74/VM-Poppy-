@@ -70,7 +70,15 @@ export function LaunchForm({ busy, onLaunch, onSave, onCancel, initial }: Props)
   return (
     <div className="card">
       <div className="spread" style={{ marginBottom: 12 }}>
-        <h2 className="section-title" style={{ margin: 0 }}>{initial ? `Edit “${initial.name}”` : "New VM"}</h2>
+        <div>
+          <h2 className="section-title" style={{ margin: 0 }}>{initial ? `Edit “${initial.name}”` : "New VM"}</h2>
+          {initial && (
+            <p className="muted" style={{ fontSize: 12, margin: "2px 0 0" }}>
+              Changes apply to the <strong>next</strong> VM you deploy — boxes already running keep the software
+              they booted with.
+            </p>
+          )}
+        </div>
         <div className="tabs">
           <button className={`tab ${!pro ? "active" : ""}`} onClick={() => setPro(false)}>Quick</button>
           <button className={`tab ${pro ? "active" : ""}`} onClick={() => setPro(true)}>PRO</button>

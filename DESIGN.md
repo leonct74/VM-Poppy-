@@ -261,8 +261,24 @@ vm-poppy/
 
 **Released:** v0.1.0 (first catalogue listing) → v0.1.1 (supervised-approval credential minting) →
 v0.1.2 (trimmed permission set so the STS session policy fits) → v0.1.3 (Windows-connect fix + UX
-polish batch) → v0.1.4 (app-scoped listing/teardown — fixes orphaned VMs) → **v0.1.5** (billing
-clarity: live run-rate + teardown terminology + Save-config). Live-tested against the user's real AWS.
+polish batch) → v0.1.4 (app-scoped listing/teardown — fixes orphaned VMs) → v0.1.5 (billing
+clarity: live run-rate + teardown terminology + Save-config) → **v0.1.6** (test-session batch:
+Edit-saved-config remount fix, Windows-password not-ready auto-poll, labeled id/address + copy
+buttons, RDP exit + stopped/Start guidance; **first dual-platform release — darwin-arm64 +
+win32-x64**, live-verified on Windows Server 2022). Live-tested against the user's real AWS.
+
+**Queued for v0.1.7 (from live Windows testing 2026-07-15):**
+- ✅ *(committed)* Software-field hint: names are Chocolatey/apt package names, with the Chrome
+  example and a "Look up a name →" link; misspelled names are skipped, not fatal.
+- **Say that editing a config only affects FUTURE deployments.** The user edited a saved config
+  (added `googlechrome`) and expected the running VM to gain it — installs run once at first
+  boot. Add a line to the edit form ("changes apply to the next deploy — running boxes keep
+  their software") and consider an "Install on running box" affordance later.
+- **Surface per-package install failures.** `choco install googlechrome` can fail a checksum
+  when the package lags a Chrome release; the script deliberately continues, so the failure is
+  silent (only in `C:\vmpoppy-install.log` / `/var/log/vmpoppy-install.log`). Emit per-package
+  OK/FAIL lines to the serial console next to the sentinel so the app can show "chrome failed
+  to install" on the card instead of implying success.
 
 **v0.1.5 shipped (2026-07-15) — "billing clarity" batch.** ✅ **Live run-rate** above the VM list —
 "Running now: N boxes ≈ $X/hr" from the app's own inventory × `HOURLY_USD`, and a reassuring "Nothing
