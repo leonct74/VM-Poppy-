@@ -55,8 +55,13 @@ export function VmCard({ vm, onChanged }: Props) {
     try { await fn(); onChanged(); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   }
 
+  // Exports a copy of the key. The webview can't open a native "save as" dialog
+  // (no such host capability yet), so the browser drops it in ~/Downloads — the
+  // button says so upfront and confirms afterwards instead of silently working.
+  const [keyState, setKeyState] = useState<"idle" | "saving" | "saved">("idle");
   async function downloadKey() {
     if (!vm.keyName) return;
+    setKeyState("saving"); setErr(null);
     try {
       const { pem, keyName } = await api.privateKey(vm.instanceId, vm.keyName);
       const blob = new Blob([pem], { type: "application/x-pem-file" });
@@ -64,7 +69,9 @@ export function VmCard({ vm, onChanged }: Props) {
       const a = document.createElement("a");
       a.href = url; a.download = `${keyName}.pem`; a.click();
       URL.revokeObjectURL(url);
-    } catch (e) { setErr((e as Error).message); }
+      setKeyState("saved");
+      window.setTimeout(() => setKeyState("idle"), 4000);
+    } catch (e) { setErr((e as Error).message); setKeyState("idle"); }
   }
 
   const ip = vm.publicIp;
@@ -134,7 +141,10 @@ export function VmCard({ vm, onChanged }: Props) {
                 ? <div className="chip" style={{ display: "block", userSelect: "all", wordBreak: "break-all" }}>{sshCmd}</div>
                 : <div className="muted">Waiting for a public IP…</div>}
               <div className="row">
-                <button className="btn btn-sm" onClick={downloadKey} disabled={!vm.keyName}>Download SSH key</button>
+                <button className="btn btn-sm" onClick={downloadKey} disabled={!vm.keyName || keyState === "saving"}
+                  title="Saves a copy of the key file into your Downloads folder">
+                  {keyState === "saving" ? "Saving…" : keyState === "saved" ? "✓ Saved to Downloads" : "Save SSH key to Downloads"}
+                </button>
                 {sshCmd && <CopyButton text={sshCmd} label="SSH command" />}
               </div>
             </div>
