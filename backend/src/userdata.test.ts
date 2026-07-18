@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { generateUserData, sanitizePackages } from "./userdata";
+import { generateUserData, parsePackageOutcomes, sanitizePackages } from "./userdata";
 import { attributionTags, ownInstancesFilter, tagValue, APP_ID, TAG_APP, TAG_CONNECTION, TAG_ACCOUNT } from "./tags";
-import { INSTALL_SENTINEL, type VmConfig } from "./types";
+import { INSTALL_SENTINEL, PKG_RESULT_PREFIX, type VmConfig } from "./types";
 
 const base: VmConfig = {
   id: "cfg1",
@@ -26,11 +26,16 @@ describe("sanitizePackages", () => {
 
 describe("generateUserData — Linux", () => {
   const ud = generateUserData({ config: base });
-  it("starts with a bash shebang and installs via the right package managers", () => {
+  it("starts with a bash shebang and installs per-package via the right package managers", () => {
     expect(ud.startsWith("#!/bin/bash")).toBe(true);
-    expect(ud).toContain("apt-get install -y git docker.io python3");
-    expect(ud).toContain("dnf install -y git docker.io python3");
-    expect(ud).toContain("yum install -y git docker.io python3");
+    // One install invocation per package (attributable verdicts), per manager.
+    expect(ud).toContain('pkg_install() { apt-get install -y "$1"; }');
+    expect(ud).toContain('pkg_install() { dnf install -y "$1"; }');
+    expect(ud).toContain('pkg_install() { yum install -y "$1"; }');
+    expect(ud).toContain("for p in git docker.io python3; do");
+    // Each package reports OK/FAIL to the serial console.
+    expect(ud).toContain('if pkg_install "$p"; then pkg_report OK "$p"; else pkg_report FAIL "$p"; fi');
+    expect(ud).toContain(`${PKG_RESULT_PREFIX} $1 $2`);
   });
   it("prints the sentinel to the console", () => {
     expect(ud).toContain(INSTALL_SENTINEL);
@@ -58,6 +63,10 @@ describe("generateUserData — Windows", () => {
     expect(ud).toContain("choco install -y git");
     expect(ud).toContain(INSTALL_SENTINEL);
   });
+  it("reports a per-package verdict after each choco install", () => {
+    expect(ud).toContain(`if ($LASTEXITCODE -eq 0) { Write-Output "${PKG_RESULT_PREFIX} OK googlechrome" } else { Write-Output "${PKG_RESULT_PREFIX} FAIL googlechrome" }`);
+    expect(ud).toContain(`${PKG_RESULT_PREFIX} OK git`);
+  });
   it("uses seconds for the Windows shutdown timer when ephemeral", () => {
     const eph = generateUserData({
       config: { ...base, platform: "windows", os: "windows-2022", lifecycle: "ephemeral", autoTerminateHours: 1 },
@@ -79,5 +88,27 @@ describe("attribution tags", () => {
     expect(f).toEqual([{ Name: `tag:${TAG_APP}`, Values: [APP_ID] }]);
     // Must NOT scope by connection id — that would strand VMs from a superseded connection.
     expect(f.some((x) => x.Name === `tag:${TAG_CONNECTION}`)).toBe(false);
+  });
+});
+
+describe("parsePackageOutcomes", () => {
+  it("parses OK and FAIL lines out of console noise", () => {
+    const text = [
+      "cloud-init[512]: some boot noise",
+      "VMPOPPY_PKG OK git",
+      "more noise … VMPOPPY_PKG FAIL googlechrome",
+      "VMPOPPY_INSTALL_COMPLETE",
+    ].join("\n");
+    expect(parsePackageOutcomes(text)).toEqual([
+      { name: "git", ok: true },
+      { name: "googlechrome", ok: false },
+    ]);
+  });
+  it("last verdict for a package wins (a retried install may FAIL then OK)", () => {
+    const text = "VMPOPPY_PKG FAIL docker.io\nVMPOPPY_PKG OK docker.io";
+    expect(parsePackageOutcomes(text)).toEqual([{ name: "docker.io", ok: true }]);
+  });
+  it("returns nothing for consoles without verdict lines (old boxes, Windows without forwarding)", () => {
+    expect(parsePackageOutcomes("plain boot output\nVMPOPPY_INSTALL_COMPLETE")).toEqual([]);
   });
 });

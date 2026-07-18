@@ -6,7 +6,7 @@
 // INSTALL_SENTINEL to the SERIAL CONSOLE so the backend can detect "ready" via
 // GetConsoleOutput — with no instance IAM role and no SSH-key custody.
 
-import { INSTALL_SENTINEL, type VmConfig } from "./types";
+import { INSTALL_SENTINEL, PKG_RESULT_PREFIX, type PackageOutcome, type VmConfig } from "./types";
 
 /** Reject anything that isn't a plausible package token, so the list can't inject shell. */
 const SAFE_PACKAGE = /^[A-Za-z0-9][A-Za-z0-9._+-]*$/;
@@ -36,17 +36,25 @@ function linuxUserData(config: UserDataInput["config"]): string {
   ];
 
   if (pkgs.length > 0) {
-    const list = pkgs.join(" ");
+    // Install one package at a time and print a per-package verdict to the serial
+    // console — a failed package (typo, repo lag) must surface on the card, not
+    // hide in the install log while the batch "succeeds".
     lines.push(
+      `pkg_report() { echo "${PKG_RESULT_PREFIX} $1 $2" | tee /dev/console || echo "${PKG_RESULT_PREFIX} $1 $2"; }`,
       "if command -v apt-get >/dev/null 2>&1; then",
       "  export DEBIAN_FRONTEND=noninteractive",
       "  apt-get update -y",
-      `  apt-get install -y ${list}`,
+      '  pkg_install() { apt-get install -y "$1"; }',
       "elif command -v dnf >/dev/null 2>&1; then",
-      `  dnf install -y ${list}`,
+      '  pkg_install() { dnf install -y "$1"; }',
       "elif command -v yum >/dev/null 2>&1; then",
-      `  yum install -y ${list}`,
+      '  pkg_install() { yum install -y "$1"; }',
+      "else",
+      '  pkg_install() { echo "no supported package manager"; false; }',
       "fi",
+      `for p in ${pkgs.join(" ")}; do`,
+      '  if pkg_install "$p"; then pkg_report OK "$p"; else pkg_report FAIL "$p"; fi',
+      "done",
     );
   }
 
@@ -82,7 +90,13 @@ function windowsUserData(config: UserDataInput["config"]): string {
       "Set-ExecutionPolicy Bypass -Scope Process -Force",
       "[System.Net.ServicePointManager]::SecurityProtocol = 3072",
       "iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))",
-      ...pkgs.map((p) => `choco install -y ${p}`),
+      // Per-package verdicts, mirroring the Linux script. On Windows these lines land in
+      // C:\vmpoppy-install.log for sure and in the EC2 console output best-effort — the
+      // card shows them when available, and loses nothing when not.
+      ...pkgs.flatMap((p) => [
+        `choco install -y ${p}`,
+        `if ($LASTEXITCODE -eq 0) { Write-Output "${PKG_RESULT_PREFIX} OK ${p}" } else { Write-Output "${PKG_RESULT_PREFIX} FAIL ${p}" }`,
+      ]),
     );
   }
 
@@ -97,4 +111,21 @@ function windowsUserData(config: UserDataInput["config"]): string {
 
   body.push(`Write-Output "${INSTALL_SENTINEL}"`, "Stop-Transcript", "</powershell>", "<persist>false</persist>");
   return body.join("\n") + "\n";
+}
+
+// ---- Console-output parsing (the read side of the verdict lines) --------------
+
+/**
+ * Parse the per-package `VMPOPPY_PKG OK|FAIL <name>` lines back out of the EC2
+ * console output. The last verdict for a name wins (a retried install may print
+ * FAIL then OK); names are matched with the same charset {@link sanitizePackages}
+ * allows, so console noise can't fabricate entries.
+ */
+export function parsePackageOutcomes(consoleText: string): PackageOutcome[] {
+  const verdicts = new Map<string, boolean>();
+  const re = new RegExp(`${PKG_RESULT_PREFIX} (OK|FAIL) ([A-Za-z0-9][A-Za-z0-9._+-]*)`, "g");
+  for (const m of consoleText.matchAll(re)) {
+    verdicts.set(m[2]!, m[1] === "OK");
+  }
+  return [...verdicts].map(([name, ok]) => ({ name, ok }));
 }

@@ -98,6 +98,20 @@ export function VmCard({ vm, onChanged }: Props) {
         {vm.launchedAt ? ` · launched ${new Date(vm.launchedAt).toLocaleString()}` : ""}
       </div>
 
+      {/* Per-package install failures — without this, a failed package (typo, repo lag)
+          only shows in the on-box log and the card quietly implies everything installed. */}
+      {(vm.packages ?? []).some((p) => !p.ok) && (
+        <div className="muted-2" style={{ fontSize: 12, marginTop: 6 }}>
+          <span className="badge warn" style={{ marginRight: 6 }}>
+            <span className="dot" />
+            didn't install
+          </span>
+          {(vm.packages ?? []).filter((p) => !p.ok).map((p) => p.name).join(", ")} — the box still
+          works; the rest installed fine. Check the name, or see the log on the box
+          ({vm.platform === "windows" ? "C:\\vmpoppy-install.log" : "/var/log/vmpoppy-install.log"}).
+        </div>
+      )}
+
       {/* Connect */}
       {vm.state === "running" && (
         <div className="card card-2" style={{ marginTop: 10, marginBottom: 10 }}>

@@ -1,7 +1,7 @@
 // Typed wrappers over host.invokeBackend for VM-Poppy's backend routes.
 
 import { host } from "./host";
-import type { InstallState, Meta, VmConfig, VmSummary } from "./types";
+import type { InstallState, Meta, PackageOutcome, VmConfig, VmSummary } from "./types";
 
 export const api = {
   meta: () => host.invokeBackend<Meta>({ method: "GET", path: "/meta" }),
@@ -16,7 +16,7 @@ export const api = {
   launch: (config: VmConfig) =>
     host.invokeBackend<{ vm: VmSummary }>({ method: "POST", path: "/vms/launch", body: { config } }),
   installState: (id: string) =>
-    host.invokeBackend<{ state: InstallState }>({ method: "GET", path: `/vms/${id}/install` }),
+    host.invokeBackend<{ state: InstallState; packages?: PackageOutcome[] }>({ method: "GET", path: `/vms/${id}/install` }),
   windowsPassword: (id: string) =>
     host.invokeBackend<{ ready: boolean; password?: string }>({ method: "GET", path: `/vms/${id}/password` }),
   privateKey: (id: string, keyName: string) =>

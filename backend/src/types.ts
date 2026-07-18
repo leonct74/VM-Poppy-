@@ -83,3 +83,23 @@ export interface LaunchRequest {
 
 /** The sentinel the generated install script prints to the serial console when done. */
 export const INSTALL_SENTINEL = "VMPOPPY_INSTALL_COMPLETE";
+
+/**
+ * Prefix of the per-package verdict lines the install script prints next to the
+ * sentinel (`VMPOPPY_PKG OK git` / `VMPOPPY_PKG FAIL googlechrome`), so a package
+ * that failed (e.g. a choco checksum lag) surfaces on the card instead of only in
+ * the on-box install log.
+ */
+export const PKG_RESULT_PREFIX = "VMPOPPY_PKG";
+
+/** One requested package's install verdict, parsed back from the console output. */
+export interface PackageOutcome {
+  name: string;
+  ok: boolean;
+}
+
+/** What `GET /vms/:id/install` returns: derived state + any per-package verdicts. */
+export interface InstallStatus {
+  state: InstallState;
+  packages: PackageOutcome[];
+}

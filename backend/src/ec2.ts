@@ -28,9 +28,9 @@ import { privateDecrypt, constants as cryptoConstants } from "node:crypto";
 import { resolveAmi } from "./amis";
 import { attributionTags, ownInstancesFilter, tagValue, TAG_CONFIG, TAG_NAME, TAG_LIFECYCLE, TAG_USER, TAG_PLATFORM, TAG_APP, APP_ID } from "./tags";
 import { savePrivateKey, readPrivateKey } from "./configs";
-import { generateUserData } from "./userdata";
+import { generateUserData, parsePackageOutcomes } from "./userdata";
 import { detectPublicIp } from "./publicIp";
-import { INSTALL_SENTINEL, loginUser, type VmConfig, type VmSummary, type IngressRule, type InstallState } from "./types";
+import { INSTALL_SENTINEL, loginUser, type VmConfig, type VmSummary, type IngressRule, type InstallState, type InstallStatus } from "./types";
 
 export interface Ec2Context {
   accountId: string;
@@ -226,19 +226,22 @@ export class Ec2Service {
   }
 
   /** True install state for one running instance (heavier — polled on demand). */
-  async installState(instanceId: string): Promise<InstallState> {
+  async installState(instanceId: string): Promise<InstallStatus> {
     const inst = await this.getOwnInstance(instanceId);
     const state = inst.State?.Name ?? "";
-    if (state === "pending") return "booting";
-    if (state !== "running") return "unknown";
+    if (state === "pending") return { state: "booting", packages: [] };
+    if (state !== "running") return { state: "unknown", packages: [] };
     const platform = detectPlatform(inst);
-    if (platform === "windows") {
-      const res = await this.ec2.send(new GetPasswordDataCommand({ InstanceId: instanceId })).catch(() => null);
-      return res?.PasswordData ? "ready" : "installing";
-    }
+    // Console output carries the per-package OK/FAIL verdicts on both platforms
+    // (best-effort on Windows, where EC2Launch may not forward script stdout).
     const res = await this.ec2.send(new GetConsoleOutputCommand({ InstanceId: instanceId, Latest: true })).catch(() => null);
     const text = res?.Output ? Buffer.from(res.Output, "base64").toString("utf8") : "";
-    return text.includes(INSTALL_SENTINEL) ? "ready" : "installing";
+    const packages = parsePackageOutcomes(text);
+    if (platform === "windows") {
+      const pw = await this.ec2.send(new GetPasswordDataCommand({ InstanceId: instanceId })).catch(() => null);
+      return { state: pw?.PasswordData ? "ready" : "installing", packages };
+    }
+    return { state: text.includes(INSTALL_SENTINEL) ? "ready" : "installing", packages };
   }
 
   // ---- Lifecycle -----------------------------------------------------------

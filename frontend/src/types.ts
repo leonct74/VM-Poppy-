@@ -5,6 +5,12 @@ export type AccessMode = "ssh-my-ip" | "rdp-my-ip" | "airgapped" | "custom";
 export type Lifecycle = "reusable" | "ephemeral";
 export type InstallState = "booting" | "installing" | "ready" | "unknown";
 
+/** One requested package's install verdict, parsed from the box's console output. */
+export interface PackageOutcome {
+  name: string;
+  ok: boolean;
+}
+
 export interface IngressRule {
   protocol: "tcp" | "udp";
   fromPort: number;
@@ -45,6 +51,8 @@ export interface VmSummary {
   launchedAt?: string;
   lifecycle: Lifecycle;
   install: InstallState;
+  /** Per-package install verdicts (from the install poll); absent until known. */
+  packages?: PackageOutcome[];
   keyName?: string;
   user?: string;
 }

@@ -29,7 +29,10 @@ export function App() {
       const withInstall = await Promise.all(
         fresh.map(async (vm) => {
           if (vm.state === "running" && vm.install !== "ready") {
-            try { return { ...vm, install: (await api.installState(vm.instanceId)).state }; } catch { return vm; }
+            try {
+              const st = await api.installState(vm.instanceId);
+              return { ...vm, install: st.state, packages: st.packages };
+            } catch { return vm; }
           }
           return vm;
         }),
