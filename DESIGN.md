@@ -267,22 +267,20 @@ Edit-saved-config remount fix, Windows-password not-ready auto-poll, labeled id/
 buttons, RDP exit + stopped/Start guidance; **first dual-platform release — darwin-arm64 +
 win32-x64**, live-verified on Windows Server 2022). Live-tested against the user's real AWS.
 
-**Queued for v0.1.7 (from live Windows testing 2026-07-15):**
-- ✅ *(committed)* Software-field hint: names are Chocolatey/apt package names, with the Chrome
+**v0.1.7 shipped (2026-07-18) — Windows-testing follow-ups batch.**
+- ✅ Software-field hint: names are Chocolatey/apt package names, with the Chrome
   example and a "Look up a name →" link; misspelled names are skipped, not fatal.
-- **Say that editing a config only affects FUTURE deployments.** The user edited a saved config
-  (added `googlechrome`) and expected the running VM to gain it — installs run once at first
-  boot. Add a line to the edit form ("changes apply to the next deploy — running boxes keep
-  their software") and consider an "Install on running box" affordance later.
-- ✅ *(committed)* **"Download SSH key" gave zero feedback** and saved silently to ~/Downloads
-  (user: "the button was completely unresponsive... didn't let me choose where"). Button now says
-  "Save SSH key to Downloads" upfront, shows Saving…/✓ Saved states. A real "save as" dialog needs
-  a new HOST capability (host:saveFile) — candidate for the AgentsPoppy platform backlog.
-- **Surface per-package install failures.** `choco install googlechrome` can fail a checksum
-  when the package lags a Chrome release; the script deliberately continues, so the failure is
-  silent (only in `C:\vmpoppy-install.log` / `/var/log/vmpoppy-install.log`). Emit per-package
-  OK/FAIL lines to the serial console next to the sentinel so the app can show "chrome failed
-  to install" on the card instead of implying success.
+- ✅ Edit form says changes apply to the **next deploy** — running boxes keep their software
+  (installs run once at first boot). An "Install on running box" affordance remains a later idea.
+- ✅ **"Save SSH key to Downloads"** — says where it goes upfront, shows Saving…/✓ Saved states.
+  A real "save as" dialog needs a new HOST capability (host:saveFile) — still an AgentsPoppy
+  platform-backlog candidate.
+- ✅ **Per-package install verdicts.** The install script now installs one package at a time and
+  prints `VMPOPPY_PKG OK|FAIL <name>` to the serial console next to the sentinel;
+  `installState` parses the verdicts from GetConsoleOutput (best-effort on Windows, where
+  EC2Launch may not forward script stdout) and the card names what didn't install, pointing at
+  `C:\vmpoppy-install.log` / `/var/log/vmpoppy-install.log` for details. Old boxes without
+  verdict lines degrade gracefully (empty list).
 
 **v0.1.5 shipped (2026-07-15) — "billing clarity" batch.** ✅ **Live run-rate** above the VM list —
 "Running now: N boxes ≈ $X/hr" from the app's own inventory × `HOURLY_USD`, and a reassuring "Nothing
